@@ -1,0 +1,28 @@
+{
+  "name": "mahgeong-showcase",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Walkthrough recorder (Playwright + real Chrome) and the Remotion promo renderer for Mahgeong. Kept separate so the game stays a single dependency-free HTML file.",
+  "scripts": {
+    "walkthrough": "node e2e/walkthrough.mjs",
+    "music": "node music/theme.mjs",
+    "studio": "remotion studio remotion/index.ts",
+    "render:landscape": "remotion render remotion/index.ts Landscape out/mahgeong-promo-16x9.mp4 --browser-executable \"C:/Program Files/Google/Chrome/Application/chrome.exe\"",
+    "render:portrait": "remotion render remotion/index.ts Portrait out/mahgeong-promo-9x16.mp4 --browser-executable \"C:/Program Files/Google/Chrome/Application/chrome.exe\""
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.200",
+    "@remotion/google-fonts": "^4.0.200",
+    "@remotion/transitions": "^4.0.200",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "^4.0.200"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "ffmpeg-static": "5.2.0",
+    "playwright": "1.49.1",
+    "typescript": "^5.6.0"
+  }
+}

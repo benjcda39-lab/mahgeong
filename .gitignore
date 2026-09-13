@@ -1,0 +1,5 @@
+node_modules/
+showcase/out/
+showcase/public/clips/
+showcase/public/shots/
+showcase/public/music/*.wav

@@ -1,0 +1,1529 @@
+<title>Mahgeong</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Alegreya+Sans:wght@400;500;700;800&family=Noto+Color+Emoji&display=swap">
+<style>
+  :root {
+    --ground: #E7DFCC;
+    --ground-2: #D9CFB6;
+    --felt: #C9BFA4;
+    --felt-2: #B8AD90;
+    --ink: #2A2722;
+    --ink-2: #6A6255;
+    --panel: #F5EFE0;
+    --panel-2: #EDE5D1;
+    --line: #C9BDA0;
+    --tile: #FBF6E8;
+    --tile-2: #EFE4C8;
+    --tile-edge: #CDBD94;
+    --tile-edge-2: #B7A67A;
+    --tile-ink: #25231F;
+    --tile-ink-2: #6E6555;
+    --red: #B5301F;
+    --blue: #245A9E;
+    --green: #2A7245;
+    --gold: #C6962B;
+    --on-accent: #FFF6E8;
+    --shadow: rgba(40, 30, 10, .35);
+    --focus: #B5301F;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #1B302B;
+      --ground-2: #142521;
+      --felt: #1E3B34;
+      --felt-2: #162D28;
+      --ink: #F0E8D6;
+      --ink-2: #B4AC98;
+      --panel: #23403A;
+      --panel-2: #1C342F;
+      --line: #3C5A52;
+      --green: #3E9A5F;
+      --gold: #D9AA3C;
+      --red: #D24A36;
+      --shadow: rgba(0, 0, 0, .6);
+      --focus: #E8C46A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #1B302B;
+    --ground-2: #142521;
+    --felt: #1E3B34;
+    --felt-2: #162D28;
+    --ink: #F0E8D6;
+    --ink-2: #B4AC98;
+    --panel: #23403A;
+    --panel-2: #1C342F;
+    --line: #3C5A52;
+    --green: #3E9A5F;
+    --gold: #D9AA3C;
+    --red: #D24A36;
+    --shadow: rgba(0, 0, 0, .6);
+    --focus: #E8C46A;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(120% 90% at 50% 0%, var(--ground) 0%, var(--ground-2) 100%) fixed;
+    color: var(--ink);
+    font-family: "Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.4;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding-inline: 16px;
+    padding-block: 14px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* ---- header ---- */
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px 24px;
+  }
+  .brand h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 900;
+    font-variation-settings: "opsz" 144;
+    font-size: clamp(30px, 4.2vw, 42px);
+    line-height: 1;
+    margin: 0;
+    letter-spacing: -.01em;
+  }
+  .brand h1 em { font-style: italic; color: var(--red); }
+  .brand p { margin: 4px 0 0; color: var(--ink-2); font-size: 14px; }
+
+  .topbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--panel); }
+  .tabs button { border: 0; border-radius: 0; border-right: 1px solid var(--line); padding: 8px 18px; background: transparent; font-weight: 600; }
+  .tabs button:last-child { border-right: 0; }
+  .tabs button[aria-selected="true"] { background: var(--ink); color: var(--panel); font-weight: 700; }
+  button.icon { width: 38px; height: 38px; padding: 0; display: inline-grid; place-items: center; font-family: "Fraunces", Georgia, serif; font-weight: 900; font-size: 20px; }
+  button.icon svg { width: 20px; height: 20px; fill: currentColor; }
+
+  /* ---- strips under the header ---- */
+  .strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px 18px;
+  }
+  .strip[hidden], button[hidden] { display: none; }
+  .masthead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+  .masthead .no {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 900;
+    font-variation-settings: "opsz" 144;
+    font-size: 28px;
+    line-height: 1;
+    color: var(--red);
+  }
+  .masthead .date { font-size: 17px; font-weight: 500; }
+  .chip {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 11px;
+    background: var(--panel);
+    white-space: nowrap;
+  }
+
+  .controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 18px; }
+  .group { display: flex; flex-direction: column; gap: 4px; }
+  .group > span {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--ink-2);
+    font-weight: 700;
+  }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--panel); }
+  .seg input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .seg label {
+    padding: 6px 11px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border-right: 1px solid var(--line);
+    color: var(--ink);
+    user-select: none;
+    white-space: nowrap;
+  }
+  .seg label:last-child { border-right: 0; }
+  .seg input:checked + label { background: var(--ink); color: var(--panel); font-weight: 700; }
+  .seg input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+  .actions { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+  button {
+    font: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  button.primary { background: var(--red); border-color: var(--red); color: var(--on-accent); }
+  button:hover { filter: brightness(1.05); }
+  button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  button:disabled { opacity: .5; cursor: default; }
+
+  /* ---- stats bar ---- */
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    align-items: center;
+    font-variant-numeric: tabular-nums;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding-block: 8px;
+  }
+  .stat { display: flex; align-items: baseline; gap: 6px; }
+  .stat b { font-family: "Fraunces", Georgia, serif; font-weight: 700; font-size: 20px; line-height: 1; }
+  .stat span { color: var(--ink-2); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
+  .stats .actions { margin-left: auto; }
+
+  /* ---- board ---- */
+  .table {
+    position: relative;
+    background: radial-gradient(100% 80% at 50% 30%, var(--felt) 0%, var(--felt-2) 100%);
+    border-radius: 14px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.15), inset 0 2px 20px rgba(0,0,0,.25);
+    padding: 10px;
+    overflow: hidden;
+  }
+  .viewport { position: relative; width: 100%; }
+  .board { position: absolute; left: 0; top: 0; transform-origin: top left; }
+
+  .tile {
+    position: absolute;
+    width: 104px;
+    height: 132px;
+    border-radius: 9px;
+    background: linear-gradient(165deg, var(--tile) 0%, var(--tile-2) 100%);
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,.7),
+      inset 0 -2px 0 rgba(120,100,60,.15),
+      5px 6px 0 var(--tile-edge),
+      6px 7px 0 var(--tile-edge-2),
+      9px 12px 14px var(--shadow);
+    color: var(--tile-ink);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 8px 12px;
+    text-align: center;
+    transition: transform .12s ease, filter .2s ease, opacity .25s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tile .kind {
+    position: absolute;
+    top: 7px;
+    left: 0;
+    right: 0;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--tile-ink-2);
+  }
+  .tile .face {
+    font-weight: 700;
+    font-size: 19px;
+    line-height: 1.12;
+    margin-top: 12px;
+    text-shadow: 0 1px 0 rgba(255,255,255,.8);
+    overflow-wrap: normal;
+    word-break: keep-all;
+    hyphens: none;
+    width: 100%;
+  }
+  .tile .face .nb { white-space: nowrap; }
+  .tile .cf {
+    font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+    font-size: 30px;
+    line-height: 1;
+    margin-top: 14px;
+  }
+  .tile.has-flag .face { margin-top: 4px; }
+  .tile.k-name .face { font-weight: 800; }
+  .tile.k-capital .kind { color: #B5301F; }
+  .tile.k-population .kind, .tile.k-population .face { color: #245A9E; }
+  .tile.k-currency .kind, .tile.k-currency .face { color: #2A7245; }
+  .tile.k-flag .kind { color: #C6962B; }
+  .tile.k-flag .face {
+    font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+    font-size: 54px;
+    line-height: 1;
+    text-shadow: none;
+    margin-top: 6px;
+  }
+
+  .tile.blocked { filter: brightness(.86) saturate(.85); cursor: default; }
+  .tile.free:hover { transform: translate(-2px, -3px); }
+  .tile.selected {
+    transform: translate(-4px, -6px);
+    box-shadow:
+      0 0 0 3px var(--red),
+      inset 0 0 0 1px rgba(255,255,255,.7),
+      5px 6px 0 var(--tile-edge),
+      6px 7px 0 var(--tile-edge-2),
+      12px 16px 18px var(--shadow);
+  }
+  /* Hint, wrong and nudge all have a static look first, so they read even with animations off. */
+  .tile.hint {
+    transform: translate(-4px, -6px);
+    box-shadow:
+      0 0 0 4px var(--gold),
+      inset 0 0 0 1px rgba(255,255,255,.7),
+      5px 6px 0 var(--tile-edge),
+      6px 7px 0 var(--tile-edge-2),
+      12px 16px 18px var(--shadow);
+    animation: pulse .7s ease-in-out 4;
+  }
+  .tile.wrong { animation: shake .35s ease; box-shadow: 0 0 0 3px var(--red), 5px 6px 0 var(--tile-edge), 6px 7px 0 var(--tile-edge-2); }
+  .tile.nudge { animation: nudge .3s ease; filter: brightness(.7) saturate(.85); }
+  .tile.gone { transform: scale(.4) rotate(-6deg); opacity: 0; pointer-events: none; }
+
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 4px var(--gold), 5px 6px 0 var(--tile-edge), 6px 7px 0 var(--tile-edge-2), 12px 16px 18px var(--shadow); } 50% { box-shadow: 0 0 0 9px var(--gold), 5px 6px 0 var(--tile-edge), 6px 7px 0 var(--tile-edge-2), 12px 16px 18px var(--shadow); } }
+  @keyframes shake { 0%,100% { translate: 0 0; } 20% { translate: -6px 0; } 40% { translate: 6px 0; } 60% { translate: -4px 0; } 80% { translate: 4px 0; } }
+  @keyframes nudge { 0%,100% { translate: 0 0; } 50% { translate: 0 3px; } }
+
+  /* placard shown on the felt once today's puzzle is done */
+  .placard { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; }
+  .placard[hidden] { display: none; }
+  .placard > div {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 22px 26px;
+    text-align: center;
+    box-shadow: 0 10px 30px var(--shadow);
+    max-width: 440px;
+    width: 100%;
+    display: grid;
+    gap: 12px;
+    justify-items: center;
+  }
+  .placard h2 { font-family: "Fraunces", Georgia, serif; font-weight: 900; font-size: 28px; margin: 0; line-height: 1.05; text-wrap: balance; }
+  .placard p { margin: 0; color: var(--ink-2); }
+
+  /* ---- learned strip ---- */
+  .learned {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-height: 54px;
+  }
+  .learned .stamp {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 900;
+    font-size: 12px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--red);
+    border: 2px solid var(--red);
+    border-radius: 4px;
+    padding: 3px 7px;
+    rotate: -3deg;
+    white-space: nowrap;
+  }
+  .learned p { margin: 0; font-size: 17px; }
+  .learned p .flag { font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
+  .learned.stuck { border-color: var(--gold); }
+  .learned.stuck .stamp { color: var(--gold); border-color: var(--gold); }
+  .learned .stuck-actions { display: none; gap: 8px; }
+  .learned.stuck .stuck-actions { display: flex; }
+  @media (max-width: 560px) { .learned { grid-template-columns: 1fr; } }
+
+  /* ---- result marks (the shareable grid) ---- */
+  .marks { display: grid; grid-template-columns: repeat(6, 24px); gap: 4px; }
+  .marks i { display: block; width: 24px; height: 24px; border-radius: 4px; background: var(--green); }
+  .marks i.y { background: var(--gold); }
+  .marks i.r { background: var(--red); }
+  .marks.small { grid-template-columns: repeat(6, 16px); gap: 3px; }
+  .marks.small i { width: 16px; height: 16px; border-radius: 3px; }
+
+  /* ---- overlay sheets ---- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 20, 18, .62);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 1000;
+  }
+  .overlay[hidden] { display: none; }
+  .sheet {
+    background: var(--panel);
+    color: var(--ink);
+    border-radius: 14px;
+    width: min(640px, 100%);
+    max-height: 92vh;
+    overflow: auto;
+    padding: 26px 28px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.45);
+  }
+  .sheet[hidden] { display: none; }
+  .sheet h2 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 900;
+    font-size: 34px;
+    margin: 0 0 4px;
+    line-height: 1.05;
+    text-wrap: balance;
+  }
+  .sheet .sum { color: var(--ink-2); margin: 0 0 16px; font-size: 16px; }
+  .sheet .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .sheet .grid div { background: var(--panel-2); border-radius: 8px; padding: 10px 12px; }
+  .sheet .grid b { display: block; font-family: "Fraunces", Georgia, serif; font-size: 26px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .sheet .grid span { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-2); }
+  .sheet h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .14em; color: var(--ink-2); margin: 0 0 8px; }
+  .sheet section { margin-bottom: 20px; }
+  .sheet section[hidden] { display: none; }
+  .recap { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 24px; font-size: 15px; }
+  .recap li { break-inside: avoid; padding: 4px 0; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; }
+  .recap li span:last-child { color: var(--ink-2); text-align: right; }
+  .recap .flag { font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
+  @media (max-width: 520px) { .recap { columns: 1; } }
+  .sheet .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .share { display: grid; gap: 10px; }
+  .share-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  textarea.share-text {
+    font: 14px/1.5 ui-monospace, Consolas, "SF Mono", monospace;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--ink);
+    resize: none;
+    width: 100%;
+    display: block;
+  }
+  .countdown { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .countdown b { font-family: "Fraunces", Georgia, serif; font-weight: 700; font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .countdown span { color: var(--ink-2); }
+
+  .bars { display: grid; gap: 6px; }
+  .bar { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 10px; font-size: 14px; }
+  .bar b {
+    display: block;
+    height: 22px;
+    background: var(--felt-2);
+    border-radius: 3px;
+    min-width: 26px;
+    color: var(--on-accent);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 0 7px;
+    line-height: 22px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .bar b.me { background: var(--red); }
+  .bar.empty b { background: var(--panel-2); color: var(--ink-2); }
+
+  .rules { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 10px; font-size: 16px; }
+  .rules li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
+  .rules .k { font-family: "Fraunces", Georgia, serif; font-weight: 900; color: var(--red); font-size: 18px; line-height: 1.3; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin-top: 4px; font-size: 14px; color: var(--ink-2); }
+  .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; background: var(--green); }
+  .legend i.y { background: var(--gold); }
+  .legend i.r { background: var(--red); }
+
+  .how { color: var(--ink-2); font-size: 14px; margin: 0; }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    translate: -50% 0;
+    background: var(--ink);
+    color: var(--panel);
+    padding: 9px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 14px;
+    z-index: 2000;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    opacity: 0;
+    transition: opacity .2s ease;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tile, .tile.hint, .tile.wrong, .tile.nudge { animation: none; transition: none; }
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Mah<em>geo</em>ng</h1>
+      <p>A daily geography puzzle, played like mahjong solitaire.</p>
+    </div>
+    <nav class="topbar" aria-label="Sections">
+      <div class="tabs" role="tablist">
+        <button id="tab-daily" type="button" role="tab" aria-selected="true">Daily</button>
+        <button id="tab-practice" type="button" role="tab" aria-selected="false">Practice</button>
+      </div>
+      <button id="btn-stats" class="icon" type="button" title="Your statistics" aria-label="Your statistics">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="10" width="4" height="8" rx="1"/><rect x="8" y="4" width="4" height="14" rx="1"/><rect x="14" y="7" width="4" height="11" rx="1"/></svg>
+      </button>
+      <button id="btn-help" class="icon" type="button" title="How to play" aria-label="How to play">?</button>
+    </nav>
+  </header>
+
+  <section class="strip" id="panel-daily">
+    <div class="masthead">
+      <span class="no" id="d-no">No. 1</span>
+      <span class="date" id="d-date"></span>
+      <span class="chip" id="d-mode"></span>
+    </div>
+    <p class="how">Same board for everyone today. A new one lands at midnight.</p>
+  </section>
+
+  <section class="strip" id="panel-practice" hidden>
+    <div class="controls">
+      <div class="group">
+        <span>Match countries to</span>
+        <div class="seg" role="radiogroup" aria-label="Match mode">
+          <input type="radio" name="mode" id="mode-capital" value="capital" checked><label for="mode-capital">Capitals</label>
+          <input type="radio" name="mode" id="mode-flag" value="flag"><label for="mode-flag">Flags</label>
+          <input type="radio" name="mode" id="mode-currency" value="currency"><label for="mode-currency">Currencies</label>
+          <input type="radio" name="mode" id="mode-population" value="population"><label for="mode-population">Populations</label>
+          <input type="radio" name="mode" id="mode-mix" value="mix"><label for="mode-mix">Mix</label>
+        </div>
+      </div>
+      <div class="group">
+        <span>Pairs</span>
+        <div class="seg" role="radiogroup" aria-label="Board size">
+          <input type="radio" name="size" id="size-12" value="12"><label for="size-12">12</label>
+          <input type="radio" name="size" id="size-18" value="18" checked><label for="size-18">18</label>
+          <input type="radio" name="size" id="size-24" value="24"><label for="size-24">24</label>
+          <input type="radio" name="size" id="size-30" value="30"><label for="size-30">30</label>
+        </div>
+      </div>
+      <div class="group">
+        <span>Deal</span>
+        <div class="seg" role="radiogroup" aria-label="Deal type">
+          <input type="radio" name="deal" id="deal-fair" value="fair" checked><label for="deal-fair" title="Every board can be cleared">Fair</label>
+          <input type="radio" name="deal" id="deal-classic" value="classic"><label for="deal-classic" title="Random deal like real mahjong solitaire. Dead ends happen.">Classic</label>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="btn-new" class="primary" type="button">New game</button>
+    </div>
+  </section>
+
+  <div class="stats">
+    <div class="stat"><b id="st-left">0</b><span>pairs left</span></div>
+    <div class="stat"><b id="st-time">0:00</b><span>time</span></div>
+    <div class="stat"><b id="st-miss">0</b><span>misses</span></div>
+    <div class="stat"><b id="st-hints">0</b><span>hints</span></div>
+    <div class="stat"><b id="st-side">–</b><span id="st-side-l">streak</span></div>
+    <div class="actions">
+      <button id="btn-hint" type="button" title="Highlight one free matching pair">Hint</button>
+      <button id="btn-shuffle" type="button" title="Redeal the remaining tiles">Shuffle</button>
+    </div>
+  </div>
+
+  <div class="table">
+    <div class="viewport" id="viewport"><div class="board" id="board"></div></div>
+    <div class="placard" id="placard" hidden>
+      <div>
+        <h2 id="pl-title">Cleared</h2>
+        <p id="pl-sum"></p>
+        <div class="marks small" id="pl-marks"></div>
+        <div class="btns">
+          <button class="primary" id="pl-results" type="button">See results</button>
+          <button id="pl-practice" type="button">Practice a board</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="learned" id="learned">
+    <div class="stamp" id="stamp">How to play</div>
+    <p id="fact">Tap two free tiles that belong to the same country. A tile is free when nothing sits on top of it and its left or right side is open. Shaded tiles are blocked.</p>
+    <div class="stuck-actions"><button id="btn-stuck-shuffle" type="button" class="primary">Shuffle the rest</button></div>
+  </div>
+
+  <p class="how">197 countries in the deck. Populations are 2024 estimates; capitals follow the seat of government where a country has more than one.</p>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet" id="sheet-end" role="dialog" aria-labelledby="end-title" hidden>
+    <h2 id="end-title">Board cleared</h2>
+    <p class="sum" id="end-sum"></p>
+    <div class="grid">
+      <div><b id="end-time">0:00</b><span>time</span></div>
+      <div><b id="end-miss">0</b><span>misses</span></div>
+      <div><b id="end-hints">0</b><span>hints</span></div>
+      <div><b id="end-side">–</b><span id="end-side-l">streak</span></div>
+    </div>
+    <section id="end-share">
+      <h3>Share your result</h3>
+      <div class="share">
+        <div class="share-row">
+          <div class="marks" id="end-marks"></div>
+          <button class="primary" id="btn-share" type="button">Copy result</button>
+        </div>
+        <textarea class="share-text" id="share-text" rows="5" readonly aria-label="Result text to share"></textarea>
+      </div>
+    </section>
+    <section id="end-next">
+      <h3>Next puzzle</h3>
+      <div class="countdown"><b id="cd">00:00:00</b><span id="cd-l">until tomorrow's board</span><button id="btn-next" class="primary" type="button" hidden>Play it now</button></div>
+    </section>
+    <section>
+      <h3>What this board taught</h3>
+      <ul class="recap" id="recap"></ul>
+    </section>
+    <div class="btns">
+      <button class="primary" id="btn-again" type="button">Play again</button>
+      <button id="btn-end-practice" type="button">Practice a board</button>
+      <button id="btn-close" type="button">Back to board</button>
+    </div>
+  </div>
+
+  <div class="sheet" id="sheet-stats" role="dialog" aria-labelledby="stats-title" hidden>
+    <h2 id="stats-title">Your statistics</h2>
+    <p class="sum" id="stats-sum">Daily puzzles only. Practice boards don't count.</p>
+    <div class="grid">
+      <div><b id="s-played">0</b><span>played</span></div>
+      <div><b id="s-streak">0</b><span>streak</span></div>
+      <div><b id="s-max">0</b><span>best streak</span></div>
+      <div><b id="s-avg">–</b><span>average</span></div>
+      <div><b id="s-best">–</b><span>fastest</span></div>
+    </div>
+    <section>
+      <h3>Finishing times</h3>
+      <div class="bars" id="s-bars"></div>
+    </section>
+    <div class="btns">
+      <button class="primary" id="btn-stats-close" type="button">Close</button>
+    </div>
+  </div>
+
+  <div class="sheet" id="sheet-help" role="dialog" aria-labelledby="help-title" hidden>
+    <h2 id="help-title">How to play</h2>
+    <p class="sum">Clear the board by pairing every country with the clue that belongs to it.</p>
+    <section>
+      <ul class="rules">
+        <li><span class="k">1</span><span>Every country has one partner tile on the board: its <b>capital</b>, its <b>flag</b>, its <b>currency</b> or its <b>population</b>. Tap the two to clear them.</span></li>
+        <li><span class="k">2</span><span>A tile is <b>free</b> when nothing sits on top of it and its left or right side is open. Shaded tiles are blocked until you uncover them.</span></li>
+        <li><span class="k">3</span><span>One puzzle a day, the same board for everyone. The clock runs while you play and pauses when you leave the tab.</span></li>
+        <li><span class="k">4</span><span>Hints and shuffles are always there, but they show up in your result grid.</span></li>
+      </ul>
+      <div class="legend"><span><i></i>clean pair</span><span><i class="y"></i>needed a hint or shuffle</span><span><i class="r"></i>wrong pair first</span></div>
+    </section>
+    <section>
+      <h3>Practice</h3>
+      <p class="how">The Practice tab has every mode and board size, plus a classic random deal for purists. Practice games don't touch your daily streak.</p>
+    </section>
+    <div class="btns">
+      <button class="primary" id="btn-help-close" type="button">Let's go</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// [ISO2, country, capital, population in millions (2024 est.), currency, currency code]
+const DATA = [
+["AF","Afghanistan","Kabul",42.6,"Afghan afghani","AFN"],
+["AL","Albania","Tirana",2.8,"Albanian lek","ALL"],
+["DZ","Algeria","Algiers",46.8,"Algerian dinar","DZD"],
+["AD","Andorra","Andorra la Vella",0.081,"Euro","EUR"],
+["AO","Angola","Luanda",37.9,"Angolan kwanza","AOA"],
+["AG","Antigua and Barbuda","St. John's",0.094,"East Caribbean dollar","XCD"],
+["AR","Argentina","Buenos Aires",46.0,"Argentine peso","ARS"],
+["AM","Armenia","Yerevan",2.97,"Armenian dram","AMD"],
+["AU","Australia","Canberra",26.8,"Australian dollar","AUD"],
+["AT","Austria","Vienna",9.2,"Euro","EUR"],
+["AZ","Azerbaijan","Baku",10.3,"Azerbaijani manat","AZN"],
+["BS","Bahamas","Nassau",0.40,"Bahamian dollar","BSD"],
+["BH","Bahrain","Manama",1.6,"Bahraini dinar","BHD"],
+["BD","Bangladesh","Dhaka",173,"Bangladeshi taka","BDT"],
+["BB","Barbados","Bridgetown",0.28,"Barbadian dollar","BBD"],
+["BY","Belarus","Minsk",9.0,"Belarusian ruble","BYN"],
+["BE","Belgium","Brussels",11.8,"Euro","EUR"],
+["BZ","Belize","Belmopan",0.42,"Belize dollar","BZD"],
+["BJ","Benin","Porto-Novo",14.5,"West African CFA franc","XOF"],
+["BT","Bhutan","Thimphu",0.79,"Bhutanese ngultrum","BTN"],
+["BO","Bolivia","Sucre",12.4,"Boliviano","BOB"],
+["BA","Bosnia and Herzegovina","Sarajevo",3.2,"Convertible mark","BAM"],
+["BW","Botswana","Gaborone",2.5,"Botswana pula","BWP"],
+["BR","Brazil","Brasília",212,"Brazilian real","BRL"],
+["BN","Brunei","Bandar Seri Begawan",0.46,"Brunei dollar","BND"],
+["BG","Bulgaria","Sofia",6.4,"Euro","EUR"],
+["BF","Burkina Faso","Ouagadougou",23.5,"West African CFA franc","XOF"],
+["BI","Burundi","Gitega",14.0,"Burundian franc","BIF"],
+["CV","Cabo Verde","Praia",0.52,"Cape Verdean escudo","CVE"],
+["KH","Cambodia","Phnom Penh",17.6,"Cambodian riel","KHR"],
+["CM","Cameroon","Yaoundé",29.1,"Central African CFA franc","XAF"],
+["CA","Canada","Ottawa",41.5,"Canadian dollar","CAD"],
+["CF","Central African Republic","Bangui",5.3,"Central African CFA franc","XAF"],
+["TD","Chad","N'Djamena",20.3,"Central African CFA franc","XAF"],
+["CL","Chile","Santiago",19.8,"Chilean peso","CLP"],
+["CN","China","Beijing",1409,"Renminbi (yuan)","CNY"],
+["CO","Colombia","Bogotá",52.9,"Colombian peso","COP"],
+["KM","Comoros","Moroni",0.87,"Comorian franc","KMF"],
+["CG","Republic of the Congo","Brazzaville",6.3,"Central African CFA franc","XAF"],
+["CD","DR Congo","Kinshasa",109,"Congolese franc","CDF"],
+["CR","Costa Rica","San José",5.2,"Costa Rican colón","CRC"],
+["CI","Côte d'Ivoire","Yamoussoukro",31.9,"West African CFA franc","XOF"],
+["HR","Croatia","Zagreb",3.9,"Euro","EUR"],
+["CU","Cuba","Havana",11.0,"Cuban peso","CUP"],
+["CY","Cyprus","Nicosia",1.3,"Euro","EUR"],
+["CZ","Czechia","Prague",10.9,"Czech koruna","CZK"],
+["DK","Denmark","Copenhagen",6.0,"Danish krone","DKK"],
+["DJ","Djibouti","Djibouti City",1.15,"Djiboutian franc","DJF"],
+["DM","Dominica","Roseau",0.073,"East Caribbean dollar","XCD"],
+["DO","Dominican Republic","Santo Domingo",11.4,"Dominican peso","DOP"],
+["EC","Ecuador","Quito",18.1,"US dollar","USD"],
+["EG","Egypt","Cairo",107,"Egyptian pound","EGP"],
+["SV","El Salvador","San Salvador",6.4,"US dollar","USD"],
+["GQ","Equatorial Guinea","Malabo",1.8,"Central African CFA franc","XAF"],
+["ER","Eritrea","Asmara",3.5,"Eritrean nakfa","ERN"],
+["EE","Estonia","Tallinn",1.37,"Euro","EUR"],
+["SZ","Eswatini","Mbabane",1.2,"Swazi lilangeni","SZL"],
+["ET","Ethiopia","Addis Ababa",130,"Ethiopian birr","ETB"],
+["FJ","Fiji","Suva",0.93,"Fijian dollar","FJD"],
+["FI","Finland","Helsinki",5.6,"Euro","EUR"],
+["FR","France","Paris",68.5,"Euro","EUR"],
+["GA","Gabon","Libreville",2.5,"Central African CFA franc","XAF"],
+["GM","Gambia","Banjul",2.8,"Gambian dalasi","GMD"],
+["GE","Georgia","Tbilisi",3.7,"Georgian lari","GEL"],
+["DE","Germany","Berlin",84.5,"Euro","EUR"],
+["GH","Ghana","Accra",34.4,"Ghanaian cedi","GHS"],
+["GR","Greece","Athens",10.4,"Euro","EUR"],
+["GD","Grenada","St. George's",0.12,"East Caribbean dollar","XCD"],
+["GT","Guatemala","Guatemala City",18.4,"Guatemalan quetzal","GTQ"],
+["GN","Guinea","Conakry",14.8,"Guinean franc","GNF"],
+["GW","Guinea-Bissau","Bissau",2.2,"West African CFA franc","XOF"],
+["GY","Guyana","Georgetown",0.83,"Guyanese dollar","GYD"],
+["HT","Haiti","Port-au-Prince",11.8,"Haitian gourde","HTG"],
+["HN","Honduras","Tegucigalpa",10.8,"Honduran lempira","HNL"],
+["HU","Hungary","Budapest",9.6,"Hungarian forint","HUF"],
+["IS","Iceland","Reykjavík",0.39,"Icelandic króna","ISK"],
+["IN","India","New Delhi",1450,"Indian rupee","INR"],
+["ID","Indonesia","Jakarta",283,"Indonesian rupiah","IDR"],
+["IR","Iran","Tehran",91.6,"Iranian rial","IRR"],
+["IQ","Iraq","Baghdad",46.0,"Iraqi dinar","IQD"],
+["IE","Ireland","Dublin",5.3,"Euro","EUR"],
+["IL","Israel","Jerusalem",9.9,"Israeli new shekel","ILS"],
+["IT","Italy","Rome",58.9,"Euro","EUR"],
+["JM","Jamaica","Kingston",2.8,"Jamaican dollar","JMD"],
+["JP","Japan","Tokyo",123.8,"Japanese yen","JPY"],
+["JO","Jordan","Amman",11.5,"Jordanian dinar","JOD"],
+["KZ","Kazakhstan","Astana",20.6,"Kazakhstani tenge","KZT"],
+["KE","Kenya","Nairobi",56.4,"Kenyan shilling","KES"],
+["KI","Kiribati","Tarawa",0.13,"Australian dollar","AUD"],
+["XK","Kosovo","Pristina",1.6,"Euro","EUR"],
+["KW","Kuwait","Kuwait City",4.9,"Kuwaiti dinar","KWD"],
+["KG","Kyrgyzstan","Bishkek",7.2,"Kyrgyzstani som","KGS"],
+["LA","Laos","Vientiane",7.8,"Lao kip","LAK"],
+["LV","Latvia","Riga",1.87,"Euro","EUR"],
+["LB","Lebanon","Beirut",5.8,"Lebanese pound","LBP"],
+["LS","Lesotho","Maseru",2.3,"Lesotho loti","LSL"],
+["LR","Liberia","Monrovia",5.5,"Liberian dollar","LRD"],
+["LY","Libya","Tripoli",7.4,"Libyan dinar","LYD"],
+["LI","Liechtenstein","Vaduz",0.040,"Swiss franc","CHF"],
+["LT","Lithuania","Vilnius",2.9,"Euro","EUR"],
+["LU","Luxembourg","Luxembourg City",0.67,"Euro","EUR"],
+["MG","Madagascar","Antananarivo",31.9,"Malagasy ariary","MGA"],
+["MW","Malawi","Lilongwe",21.7,"Malawian kwacha","MWK"],
+["MY","Malaysia","Kuala Lumpur",35.6,"Malaysian ringgit","MYR"],
+["MV","Maldives","Malé",0.53,"Maldivian rufiyaa","MVR"],
+["ML","Mali","Bamako",24.5,"West African CFA franc","XOF"],
+["MT","Malta","Valletta",0.55,"Euro","EUR"],
+["MH","Marshall Islands","Majuro",0.042,"US dollar","USD"],
+["MR","Mauritania","Nouakchott",5.2,"Mauritanian ouguiya","MRU"],
+["MU","Mauritius","Port Louis",1.27,"Mauritian rupee","MUR"],
+["MX","Mexico","Mexico City",130,"Mexican peso","MXN"],
+["FM","Micronesia","Palikir",0.115,"US dollar","USD"],
+["MD","Moldova","Chișinău",3.0,"Moldovan leu","MDL"],
+["MC","Monaco","Monaco",0.039,"Euro","EUR"],
+["MN","Mongolia","Ulaanbaatar",3.5,"Mongolian tögrög","MNT"],
+["ME","Montenegro","Podgorica",0.63,"Euro","EUR"],
+["MA","Morocco","Rabat",38.1,"Moroccan dirham","MAD"],
+["MZ","Mozambique","Maputo",34.6,"Mozambican metical","MZN"],
+["MM","Myanmar","Naypyidaw",54.5,"Burmese kyat","MMK"],
+["NA","Namibia","Windhoek",3.0,"Namibian dollar","NAD"],
+["NR","Nauru","Yaren",0.012,"Australian dollar","AUD"],
+["NP","Nepal","Kathmandu",29.7,"Nepalese rupee","NPR"],
+["NL","Netherlands","Amsterdam",18.0,"Euro","EUR"],
+["NZ","New Zealand","Wellington",5.3,"New Zealand dollar","NZD"],
+["NI","Nicaragua","Managua",7.0,"Nicaraguan córdoba","NIO"],
+["NE","Niger","Niamey",27.0,"West African CFA franc","XOF"],
+["NG","Nigeria","Abuja",232,"Nigerian naira","NGN"],
+["KP","North Korea","Pyongyang",26.5,"North Korean won","KPW"],
+["MK","North Macedonia","Skopje",1.8,"Macedonian denar","MKD"],
+["NO","Norway","Oslo",5.6,"Norwegian krone","NOK"],
+["OM","Oman","Muscat",5.3,"Omani rial","OMR"],
+["PK","Pakistan","Islamabad",251,"Pakistani rupee","PKR"],
+["PW","Palau","Ngerulmud",0.018,"US dollar","USD"],
+["PS","Palestine","Ramallah (admin. centre)",5.5,"Israeli new shekel","ILS"],
+["PA","Panama","Panama City",4.5,"Panamanian balboa","PAB"],
+["PG","Papua New Guinea","Port Moresby",10.5,"Papua New Guinean kina","PGK"],
+["PY","Paraguay","Asunción",6.9,"Paraguayan guaraní","PYG"],
+["PE","Peru","Lima",34.2,"Peruvian sol","PEN"],
+["PH","Philippines","Manila",115.8,"Philippine peso","PHP"],
+["PL","Poland","Warsaw",38.5,"Polish złoty","PLN"],
+["PT","Portugal","Lisbon",10.6,"Euro","EUR"],
+["QA","Qatar","Doha",3.0,"Qatari riyal","QAR"],
+["RO","Romania","Bucharest",19.0,"Romanian leu","RON"],
+["RU","Russia","Moscow",144,"Russian ruble","RUB"],
+["RW","Rwanda","Kigali",14.3,"Rwandan franc","RWF"],
+["KN","Saint Kitts and Nevis","Basseterre",0.047,"East Caribbean dollar","XCD"],
+["LC","Saint Lucia","Castries",0.18,"East Caribbean dollar","XCD"],
+["VC","Saint Vincent and the Grenadines","Kingstown",0.10,"East Caribbean dollar","XCD"],
+["WS","Samoa","Apia",0.22,"Samoan tālā","WST"],
+["SM","San Marino","City of San Marino",0.034,"Euro","EUR"],
+["ST","São Tomé and Príncipe","São Tomé",0.23,"São Tomé and Príncipe dobra","STN"],
+["SA","Saudi Arabia","Riyadh",33.9,"Saudi riyal","SAR"],
+["SN","Senegal","Dakar",18.5,"West African CFA franc","XOF"],
+["RS","Serbia","Belgrade",6.6,"Serbian dinar","RSD"],
+["SC","Seychelles","Victoria",0.13,"Seychellois rupee","SCR"],
+["SL","Sierra Leone","Freetown",8.6,"Sierra Leonean leone","SLE"],
+["SG","Singapore","Singapore",5.9,"Singapore dollar","SGD"],
+["SK","Slovakia","Bratislava",5.4,"Euro","EUR"],
+["SI","Slovenia","Ljubljana",2.1,"Euro","EUR"],
+["SB","Solomon Islands","Honiara",0.82,"Solomon Islands dollar","SBD"],
+["SO","Somalia","Mogadishu",19.0,"Somali shilling","SOS"],
+["ZA","South Africa","Pretoria",64.0,"South African rand","ZAR"],
+["KR","South Korea","Seoul",51.7,"South Korean won","KRW"],
+["SS","South Sudan","Juba",11.9,"South Sudanese pound","SSP"],
+["ES","Spain","Madrid",48.6,"Euro","EUR"],
+["LK","Sri Lanka","Sri Jayawardenepura Kotte",23.1,"Sri Lankan rupee","LKR"],
+["SD","Sudan","Khartoum",50.4,"Sudanese pound","SDG"],
+["SR","Suriname","Paramaribo",0.63,"Surinamese dollar","SRD"],
+["SE","Sweden","Stockholm",10.6,"Swedish krona","SEK"],
+["CH","Switzerland","Bern",9.0,"Swiss franc","CHF"],
+["SY","Syria","Damascus",24.7,"Syrian pound","SYP"],
+["TW","Taiwan","Taipei",23.4,"New Taiwan dollar","TWD"],
+["TJ","Tajikistan","Dushanbe",10.6,"Tajikistani somoni","TJS"],
+["TZ","Tanzania","Dodoma",68.6,"Tanzanian shilling","TZS"],
+["TH","Thailand","Bangkok",71.7,"Thai baht","THB"],
+["TL","Timor-Leste","Dili",1.4,"US dollar","USD"],
+["TG","Togo","Lomé",9.5,"West African CFA franc","XOF"],
+["TO","Tonga","Nukuʻalofa",0.10,"Tongan paʻanga","TOP"],
+["TT","Trinidad and Tobago","Port of Spain",1.5,"Trinidad and Tobago dollar","TTD"],
+["TN","Tunisia","Tunis",12.3,"Tunisian dinar","TND"],
+["TR","Türkiye","Ankara",87.5,"Turkish lira","TRY"],
+["TM","Turkmenistan","Ashgabat",7.4,"Turkmenistani manat","TMT"],
+["TV","Tuvalu","Funafuti",0.010,"Tuvaluan dollar","TVD"],
+["UG","Uganda","Kampala",50.0,"Ugandan shilling","UGX"],
+["UA","Ukraine","Kyiv",37.9,"Ukrainian hryvnia","UAH"],
+["AE","United Arab Emirates","Abu Dhabi",11.0,"UAE dirham","AED"],
+["GB","United Kingdom","London",69.1,"Pound sterling","GBP"],
+["US","United States","Washington, D.C.",341,"US dollar","USD"],
+["UY","Uruguay","Montevideo",3.4,"Uruguayan peso","UYU"],
+["UZ","Uzbekistan","Tashkent",36.4,"Uzbekistani som","UZS"],
+["VU","Vanuatu","Port Vila",0.33,"Vanuatu vatu","VUV"],
+["VA","Vatican City","Vatican City",0.0008,"Euro","EUR"],
+["VE","Venezuela","Caracas",28.4,"Venezuelan bolívar","VES"],
+["VN","Vietnam","Hanoi",100.4,"Vietnamese đồng","VND"],
+["YE","Yemen","Sanaa",40.6,"Yemeni rial","YER"],
+["ZM","Zambia","Lusaka",21.3,"Zambian kwacha","ZMW"],
+["ZW","Zimbabwe","Harare",16.6,"Zimbabwe gold (ZiG)","ZWG"],
+];
+const BY_CODE = Object.fromEntries(DATA.map(c => [c[0], c]));
+const KINDS = ["capital", "flag", "currency", "population"];
+const KIND_LABEL = { name: "Country", capital: "Capital", flag: "Flag", currency: "Currency", population: "Population" };
+const MODES = ["capital", "flag", "currency", "population", "mix"];
+const MODE_NAME = { capital: "Capitals", flag: "Flags", currency: "Currencies", population: "Populations", mix: "Mixed clues" };
+
+// ---------- the daily calendar ----------
+const NAME = "Mahgeong";
+const EPOCH = [2026, 8, 11];          // 11 September 2026 is No. 1 (local time)
+const DAILY_SIZE = 18;
+const SHARE_COLS = 6;
+
+// Seeded random so the same day deals the same board for everyone.
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+let rng = Math.random;
+const rnd = n => Math.floor(rng() * n);
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+function todayNumber() {
+  const d = new Date();
+  const a = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const b = Date.UTC(EPOCH[0], EPOCH[1], EPOCH[2]);
+  return Math.max(1, Math.floor((a - b) / 864e5) + 1);
+}
+function dateOfNumber(n) { return new Date(EPOCH[0], EPOCH[1], EPOCH[2] + n - 1); }
+function nextMidnight() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime(); }
+// Each day's clue type is drawn from the seed, never the same as the day before. No. 1 is capitals.
+function dailySpec(n) {
+  let prev = null, mode = "capital";
+  for (let i = 2; i <= n; i++) {
+    prev = mode;
+    const r = mulberry32(i * 48271 + 11);
+    const pool = MODES.filter(m => m !== prev);
+    mode = pool[Math.floor(r() * pool.length)];
+  }
+  return { mode, size: DAILY_SIZE };
+}
+
+// ---------- storage ----------
+const KEY = { daily: "mahgeong-daily-", results: "mahgeong-results", help: "mahgeong-help-seen", best: "mahgeong-best-" };
+const LS = {
+  get(k) { try { const v = localStorage.getItem(k); return v == null ? null : JSON.parse(v); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+// ---------- helpers ----------
+function flagOf(code) { return [...code].map(ch => String.fromCodePoint(0x1F1E6 + ch.charCodeAt(0) - 65)).join(""); }
+function popText(m) {
+  if (m < 0.001) return "≈ " + Math.round(m * 1e6) + " people";
+  if (m < 1) return "≈ " + Math.round(m * 1000) + " thousand";
+  if (m < 10) { const s = m.toFixed(1); return "≈ " + (s.endsWith(".0") ? s.slice(0, -2) : s) + " million"; }
+  if (m < 1000) return "≈ " + Math.round(m) + " million";
+  return "≈ " + (m / 1000).toFixed(2) + " billion";
+}
+// Currency tiles show only the unit, never the demonym, so the name doesn't give the country away.
+const CUR_KEEP = new Set(["Euro", "Boliviano", "Convertible mark", "Renminbi (yuan)", "East Caribbean dollar", "West African CFA franc", "Central African CFA franc", "Pound sterling"]);
+const CUR_SHORT = {
+  "New Zealand dollar": "Dollar", "Papua New Guinean kina": "Kina", "São Tomé and Príncipe dobra": "Dobra",
+  "Trinidad and Tobago dollar": "Dollar", "Solomon Islands dollar": "Dollar", "Sierra Leonean leone": "Leone",
+  "Costa Rican colón": "Colón", "Cape Verdean escudo": "Escudo", "South African rand": "Rand",
+  "South Korean won": "Won", "North Korean won": "Won", "South Sudanese pound": "Pound", "Sri Lankan rupee": "Rupee",
+  "Israeli new shekel": "New shekel", "New Taiwan dollar": "Dollar", "Zimbabwe gold (ZiG)": "ZiG",
+};
+function currencyShort(name) {
+  if (CUR_KEEP.has(name)) return name;
+  if (CUR_SHORT[name]) return CUR_SHORT[name];
+  const rest = name.split(" ").slice(1).join(" ");
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
+}
+function valueOf(c, kind) {
+  switch (kind) {
+    case "capital": return c[2];
+    case "flag": return flagOf(c[0]);
+    case "currency": return currencyShort(c[4]);
+    case "population": return popText(c[3]);
+  }
+}
+function uniqKey(c, kind) { return kind === "currency" ? currencyShort(c[4]).toLowerCase() : valueOf(c, kind); }
+function fmtTime(s) { return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+function pad2(n) { return String(n).padStart(2, "0"); }
+function factFor(c, kind) {
+  const n = c[1];
+  switch (kind) {
+    case "capital": return `<b>${c[2]}</b> is the capital of <b>${n}</b>.`;
+    case "flag": return `<span class="flag">${flagOf(c[0])}</span> is the flag of <b>${n}</b>.`;
+    case "currency": return `<b>${n}</b> uses the <b>${c[4]}</b> (${c[5]}).`;
+    case "population": return `<b>${n}</b> is home to about <b>${popText(c[3]).replace("≈ ", "")}</b> people.`;
+  }
+}
+
+// ---------- layouts (half-tile units: a tile spans 2×2) ----------
+function build(blocks, extras = []) {
+  const out = [];
+  for (const [cols, rows, x0, y0, z] of blocks)
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) out.push({ x: x0 + 2 * i, y: y0 + 2 * j, z });
+  for (const [x, y, z] of extras) out.push({ x, y, z });
+  return out;
+}
+const LAYOUTS = {
+  12: build([[6, 3, 2, 0, 0], [3, 2, 5, 1, 1]]),
+  18: build([[6, 4, 2, 0, 0], [4, 2, 4, 2, 1], [2, 1, 6, 3, 2]], [[0, 3, 0], [14, 3, 0]]),
+  24: build([[8, 4, 0, 0, 0], [6, 2, 2, 2, 1], [2, 2, 6, 2, 2]]),
+  30: build([[10, 4, 2, 0, 0], [6, 2, 6, 2, 1], [3, 2, 9, 2, 2]], [[0, 3, 0], [22, 3, 0]]),
+};
+const TW = 104, TH = 132, HW = TW / 2, HH = TH / 2, LX = -6, LY = -8, PAD = 20;
+
+const overlaps = (a, b) => a.x < b.x + 2 && b.x < a.x + 2 && a.y < b.y + 2 && b.y < a.y + 2;
+function isFree(t, alive) {
+  let left = false, right = false;
+  for (const o of alive) {
+    if (o === t) continue;
+    if (o.z === t.z + 1 && overlaps(t, o)) return false;
+    if (o.z === t.z && o.y < t.y + 2 && t.y < o.y + 2) {
+      if (o.x < t.x && o.x + 2 >= t.x) left = true;
+      if (o.x > t.x && o.x <= t.x + 2) right = true;
+    }
+  }
+  return !(left && right);
+}
+// Peel a layout in random free pairs so the deal is guaranteed solvable.
+function generate(positions) {
+  for (let attempt = 0; attempt < 80; attempt++) {
+    let alive = positions.slice();
+    const order = [];
+    while (alive.length) {
+      const free = shuffle(alive.filter(t => isFree(t, alive)));
+      if (free.length < 2) break;
+      const a = free[0], b = free[1];
+      alive = alive.filter(t => t !== a && t !== b);
+      order.push([a, b]);
+    }
+    if (!alive.length) return order;
+  }
+  return null;
+}
+// Classic deal: positions paired at random, exactly like a real mahjong solitaire deal.
+function randomDeal(positions) {
+  const p = shuffle(positions.slice()), order = [];
+  for (let i = 0; i < p.length; i += 2) order.push([p[i], p[i + 1]]);
+  return order;
+}
+function dealOrder(positions, deal) { return deal === "classic" ? randomDeal(positions) : generate(positions); }
+function pickCountries(n, mode) {
+  const used = { capital: new Set(), flag: new Set(), currency: new Set(), population: new Set() };
+  const out = [];
+  for (const c of shuffle(DATA.slice())) {
+    const kind = mode === "mix" ? KINDS[rnd(KINDS.length)] : mode;
+    const key = uniqKey(c, kind);
+    if (used[kind].has(key)) continue;
+    used[kind].add(key);
+    out.push({ code: c[0], kind });
+    if (out.length === n) break;
+  }
+  return out;
+}
+function makeTiles(mode, size, deal) {
+  let order = null;
+  for (let k = 0; k < 20 && !order; k++) order = dealOrder(LAYOUTS[size], deal);
+  const pairs = pickCountries(size, mode);
+  const tiles = [];
+  order.forEach(([a, b], i) => {
+    const p = pairs[i];
+    if (rng() < .5) [a, b] = [b, a];
+    tiles.push({ x: a.x, y: a.y, z: a.z, code: p.code, kind: "name", alive: true });
+    tiles.push({ x: b.x, y: b.y, z: b.z, code: p.code, kind: p.kind, alive: true });
+  });
+  return tiles;
+}
+
+// ---------- state ----------
+let state = null, timer = null, tab = "daily", cdTimer = null;
+const $ = id => document.getElementById(id);
+const board = $("board"), viewport = $("viewport");
+
+function baseState(extra) {
+  return { mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
+}
+function snapshotOf(s) {
+  const { kind, n, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag } = s;
+  return { kind, n, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
+}
+function saveDaily() { if (state && state.kind === "daily") LS.set(KEY.daily + state.n, snapshotOf(state)); }
+
+function newPractice(mode, size, deal) {
+  state = baseState({ kind: "practice", mode, size, deal, tiles: makeTiles(mode, size, deal) });
+  stopTimer();
+  mount();
+  $("placard").hidden = true;
+  setFact("How to play", deal === "classic"
+    ? "Classic deal: the tiles landed at random, so this board may not be clearable. Tap two free tiles from the same country. If you dead-end, shuffle or redeal."
+    : "Tap two free tiles that belong to the same country. A tile is free when nothing sits on top of it and its left or right side is open. Shaded tiles are blocked.");
+  closeOverlay();
+}
+
+function loadDaily() {
+  const n = todayNumber(), spec = dailySpec(n);
+  const saved = LS.get(KEY.daily + n);
+  if (saved && saved.tiles && saved.tiles.length) {
+    state = { ...baseState(), ...saved, kind: "daily", n, running: false, sel: -1 };
+  } else {
+    rng = mulberry32(n * 1000003 + 7);
+    let tiles;
+    try { tiles = makeTiles(spec.mode, spec.size, "fair"); } finally { rng = Math.random; }
+    state = baseState({ kind: "daily", n, mode: spec.mode, size: spec.size, deal: "fair", tiles });
+  }
+  stopTimer();
+  $("d-no").textContent = "No. " + n;
+  $("d-date").textContent = dateOfNumber(n).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  $("d-mode").textContent = MODE_NAME[state.mode] + " · " + state.size + " pairs";
+  mount();
+  if (state.done) {
+    showPlacard();
+    setFact("Done for today", "You've cleared No. " + n + ". Try a practice board, or come back at midnight for No. " + (n + 1) + ".");
+  } else {
+    $("placard").hidden = true;
+    setFact(saved ? "Resumed" : "No. " + n, saved
+      ? "Your board is back where you left it. The clock starts again on your next tap."
+      : "Tap two free tiles that belong to the same country. A tile is free when nothing sits on top of it and its left or right side is open. Shaded tiles are blocked.");
+  }
+}
+
+// Shrink a tile's face until every word fits on one line and the block fits the tile.
+function fitText(el, isFlag) {
+  if (isFlag) return;
+  const MAX = 19, MIN = 9, maxH = TH - 46 - (el.parentElement.classList.contains("has-flag") ? 34 : 0);
+  let size = MAX;
+  el.style.fontSize = size + "px";
+  while (size > MIN && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > maxH)) {
+    size -= 0.5;
+    el.style.fontSize = size + "px";
+  }
+}
+function fitAllText() { if (state) state.tiles.forEach(t => t.el && fitText(t.el.querySelector(".face"), t.kind === "flag")); }
+
+function mount() {
+  board.innerHTML = "";
+  const maxX = Math.max(...state.tiles.map(t => t.x + 2)), maxY = Math.max(...state.tiles.map(t => t.y + 2));
+  const maxZ = Math.max(...state.tiles.map(t => t.z));
+  state.w = maxX * HW + PAD * 2 + 10;
+  state.h = maxY * HH + PAD * 2 + 14;
+  board.style.width = state.w + "px";
+  board.style.height = state.h + "px";
+  const lift = PAD - LX * maxZ, liftY = PAD - LY * maxZ;
+  state.tiles.forEach((t, i) => {
+    const el = document.createElement("div");
+    el.className = "tile k-" + t.kind;
+    el.style.left = (lift + t.x * HW + t.z * LX) + "px";
+    el.style.top = (liftY + t.y * HH + t.z * LY) + "px";
+    el.style.zIndex = t.z * 10 + 1;
+    el.setAttribute("role", "button");
+    el.tabIndex = 0;
+    const c = BY_CODE[t.code];
+    const face = t.kind === "name" ? c[1] : valueOf(c, t.kind);
+    const shown = t.kind === "flag" ? face : face.replace(/\S+-\S+/g, m => `<span class="nb">${m}</span>`);
+    // Country tiles carry their flag unless the flag is the thing being matched.
+    const partner = state.tiles.find(o => o !== t && o.code === t.code);
+    const showFlag = t.kind === "name" && partner && partner.kind !== "flag";
+    if (showFlag) el.classList.add("has-flag");
+    el.innerHTML = `<span class="kind">${KIND_LABEL[t.kind]}</span>${showFlag ? `<span class="cf">${flagOf(c[0])}</span>` : ""}<span class="face">${shown}</span>`;
+    el.setAttribute("aria-label", KIND_LABEL[t.kind] + ": " + face);
+    el.addEventListener("click", () => onTile(i));
+    el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTile(i); } });
+    if (!t.alive) el.classList.add("gone");
+    t.el = el;
+    board.appendChild(el);
+  });
+  fitAllText();
+  fit();
+  refresh();
+}
+
+function fit() {
+  if (!state) return;
+  const avail = viewport.clientWidth;
+  const maxH = Math.max(320, window.innerHeight - 250);
+  const s = Math.min(1, avail / state.w, maxH / state.h);
+  board.style.transform = `scale(${s})`;
+  viewport.style.height = Math.round(state.h * s) + "px";
+  board.style.left = Math.max(0, (avail - state.w * s) / 2) + "px";
+}
+window.addEventListener("resize", fit);
+
+function aliveTiles() { return state.tiles.filter(t => t.alive); }
+function freeTiles() { const a = aliveTiles(); return a.filter(t => isFree(t, a)); }
+
+function refresh() {
+  const free = new Set(freeTiles());
+  state.tiles.forEach((t, i) => {
+    if (!t.alive) return;
+    t.el.classList.toggle("free", free.has(t));
+    t.el.classList.toggle("blocked", !free.has(t));
+    t.el.classList.toggle("selected", state.sel === i);
+    t.el.setAttribute("aria-disabled", free.has(t) ? "false" : "true");
+  });
+  $("st-left").textContent = aliveTiles().length / 2;
+  $("st-miss").textContent = state.mistakes;
+  $("st-hints").textContent = state.hints;
+  $("st-time").textContent = fmtTime(state.elapsed);
+  if (state.kind === "daily") {
+    $("st-side").textContent = computeStats().streak;
+    $("st-side-l").textContent = "streak";
+  } else {
+    const best = getBest();
+    $("st-side").textContent = best == null ? "–" : fmtTime(best);
+    $("st-side-l").textContent = "best";
+  }
+  $("btn-hint").disabled = state.done;
+  $("btn-shuffle").disabled = state.done;
+}
+
+function setFact(stamp, html, stuck = false) {
+  $("stamp").textContent = stamp;
+  $("fact").innerHTML = html;
+  $("learned").classList.toggle("stuck", stuck);
+}
+
+function startTimer() {
+  if (state.running || state.done) return;
+  state.running = true;
+  timer = setInterval(() => {
+    state.elapsed++;
+    $("st-time").textContent = fmtTime(state.elapsed);
+    if (state.kind === "daily" && state.elapsed % 5 === 0) saveDaily();
+  }, 1000);
+}
+function stopTimer() { clearInterval(timer); timer = null; if (state) state.running = false; }
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && state && state.running) {
+    stopTimer(); saveDaily();
+    if (!state.done) setFact("Paused", "The clock stopped while you were away. Tap a tile to keep going.");
+  }
+});
+window.addEventListener("pagehide", saveDaily);
+
+function flash(el, cls, ms) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(() => el.classList.remove(cls), ms); }
+
+function onTile(i) {
+  const t = state.tiles[i];
+  if (!t.alive || state.done) return;
+  if (!t.el.classList.contains("free")) { flash(t.el, "nudge", 300); return; }
+  startTimer();
+  if (state.sel === i) { state.sel = -1; refresh(); return; }
+  if (state.sel < 0) { state.sel = i; refresh(); return; }
+  const s = state.tiles[state.sel];
+  if (s.code === t.code) {
+    matchPair(s, t);
+  } else {
+    state.mistakes++;
+    state.missFlag = true;
+    flash(s.el, "wrong", 350); flash(t.el, "wrong", 350);
+    state.sel = -1;
+    refresh();
+    saveDaily();
+  }
+}
+
+function matchPair(a, b) {
+  a.alive = b.alive = false;
+  a.el.classList.add("gone"); b.el.classList.add("gone");
+  a.el.classList.remove("selected");
+  state.sel = -1;
+  const attr = a.kind === "name" ? b : a;
+  const c = BY_CODE[attr.code];
+  state.log.push({ code: attr.code, kind: attr.kind });
+  state.marks.push(state.missFlag ? "r" : state.helpFlag ? "y" : "g");
+  state.missFlag = state.helpFlag = false;
+  setFact("Matched", factFor(c, attr.kind));
+  refresh();
+  if (!aliveTiles().length) return finish();
+  if (!hasMove()) setFact("Stuck", stuckText(), true);
+  saveDaily();
+}
+function stuckText() {
+  return state.deal === "classic"
+    ? "No free pair matches. That's classic mahjong: a random deal can dead-end. Shuffle the rest or start a new game."
+    : "No free pair matches right now. Shuffle the remaining tiles to keep going.";
+}
+
+function hasMove() { return !!findMove(); }
+function findMove() {
+  const free = freeTiles();
+  for (let i = 0; i < free.length; i++) for (let j = i + 1; j < free.length; j++)
+    if (free[i].code === free[j].code) return [free[i], free[j]];
+  return null;
+}
+
+function hint() {
+  if (state.done) return;
+  const m = findMove();
+  if (!m) { setFact("Stuck", stuckText(), true); return; }
+  state.hints++;
+  state.helpFlag = true;
+  startTimer();
+  m.forEach(t => flash(t.el, "hint", 3000));
+  const c = BY_CODE[m[0].code];
+  const clue = m.find(t => t.kind !== "name");
+  setFact("Hint", `<b>${c[1]}</b> goes with <b>${clue.kind === "flag" ? `<span class="flag">${flagOf(c[0])}</span>` : valueOf(c, clue.kind)}</b>. Both tiles are ringed in gold.`);
+  refresh();
+  saveDaily();
+}
+
+function reshuffle() {
+  if (state.done) return;
+  const alive = aliveTiles();
+  if (!alive.length) return;
+  const positions = alive.map(t => ({ x: t.x, y: t.y, z: t.z }));
+  const order = dealOrder(positions, state.deal);
+  if (!order) { setFact("Stuck", "These tiles can't be redealt into a solvable board. Start a new game.", true); return; }
+  const byCode = {};
+  alive.forEach(t => (byCode[t.code] = byCode[t.code] || []).push(t));
+  const groups = shuffle(Object.values(byCode));
+  order.forEach(([p, q], i) => {
+    let [u, v] = groups[i];
+    if (Math.random() < .5) [u, v] = [v, u];
+    Object.assign(u, p); Object.assign(v, q);
+  });
+  state.sel = -1;
+  state.shuffles++;
+  state.helpFlag = true;
+  mount();
+  if (state.deal === "classic") {
+    if (hasMove()) setFact("Shuffled", "The remaining tiles were redealt at random. There is at least one move open.");
+    else setFact("Stuck", "Redealt at random and still no move. Shuffle again or start a new game.", true);
+  } else {
+    setFact("Shuffled", "The remaining tiles were redealt into a board that can be cleared.");
+  }
+  saveDaily();
+}
+
+// ---------- results, stats, sharing ----------
+function bestKey() { return KEY.best + state.mode + "-" + state.size + (state.deal === "classic" ? "-classic" : ""); }
+function getBest() { try { const v = localStorage.getItem(bestKey()); return v == null ? null : +v; } catch { return null; } }
+
+function computeStats() {
+  const res = LS.get(KEY.results) || {};
+  const days = Object.keys(res).map(Number).sort((a, b) => a - b);
+  const played = days.length;
+  let max = 0, cur = 0, prev = null;
+  for (const d of days) { cur = (prev != null && d === prev + 1) ? cur + 1 : 1; max = Math.max(max, cur); prev = d; }
+  const today = todayNumber();
+  const streak = (prev === today || prev === today - 1) ? cur : 0;
+  const times = days.map(d => res[d].t);
+  const avg = played ? Math.round(times.reduce((a, b) => a + b, 0) / played) : null;
+  const best = played ? Math.min(...times) : null;
+  const buckets = [["Under 2:00", 0, 120], ["2:00 to 3:59", 120, 240], ["4:00 to 5:59", 240, 360], ["6:00 to 9:59", 360, 600], ["10:00 and over", 600, Infinity]];
+  const dist = buckets.map(([label, lo, hi]) => ({ label, lo, hi, n: times.filter(t => t >= lo && t < hi).length }));
+  return { played, streak, max, avg, best, dist, res };
+}
+function recordResult() {
+  const res = LS.get(KEY.results) || {};
+  if (!res[state.n]) res[state.n] = { t: state.elapsed, m: state.mistakes, h: state.hints, s: state.shuffles, marks: state.marks.join(""), mode: state.mode };
+  LS.set(KEY.results, res);
+}
+const MARK_EMOJI = { g: "🟩", y: "🟨", r: "🟥" };
+function markRows(marks) {
+  const rows = [];
+  for (let i = 0; i < marks.length; i += SHARE_COLS) rows.push(marks.slice(i, i + SHARE_COLS));
+  return rows;
+}
+function renderMarks(el, marks) {
+  el.innerHTML = marks.map(m => `<i class="${m}"></i>`).join("");
+}
+function shareText() {
+  const lines = [
+    `${NAME} No. ${state.n} · ${MODE_NAME[state.mode]}`,
+    `⏱ ${fmtTime(state.elapsed)} · ${state.mistakes} ${state.mistakes === 1 ? "miss" : "misses"} · ${state.hints} ${state.hints === 1 ? "hint" : "hints"}`,
+    ...markRows(state.marks).map(r => r.map(m => MARK_EMOJI[m]).join("")),
+  ];
+  return lines.join("\n");
+}
+async function copyResult() {
+  const text = $("share-text").value;
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; } catch {}
+  if (!ok) { try { const ta = $("share-text"); ta.focus(); ta.select(); ok = document.execCommand("copy"); } catch {} }
+  toast(ok ? "Copied. Paste it anywhere." : "Couldn't copy automatically. Select the text and copy it.");
+}
+let toastTimer = null;
+function toast(msg) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2400);
+}
+
+function startCountdown() {
+  clearInterval(cdTimer);
+  const tick = () => {
+    const ms = nextMidnight() - Date.now();
+    if (ms <= 0 || todayNumber() !== state.n) {
+      $("cd").textContent = "No. " + todayNumber();
+      $("cd-l").textContent = "is ready";
+      $("btn-next").hidden = false;
+      clearInterval(cdTimer);
+      return;
+    }
+    const s = Math.floor(ms / 1000);
+    $("cd").textContent = pad2(Math.floor(s / 3600)) + ":" + pad2(Math.floor(s / 60) % 60) + ":" + pad2(s % 60);
+    $("cd-l").textContent = "until No. " + (state.n + 1);
+    $("btn-next").hidden = true;
+  };
+  tick();
+  cdTimer = setInterval(tick, 1000);
+}
+
+function showPlacard() {
+  $("placard").hidden = false;
+  $("pl-title").textContent = "No. " + state.n + " cleared in " + fmtTime(state.elapsed);
+  $("pl-sum").textContent = `${MODE_NAME[state.mode]} · ${state.mistakes} ${state.mistakes === 1 ? "miss" : "misses"} · ${state.hints} ${state.hints === 1 ? "hint" : "hints"}`;
+  renderMarks($("pl-marks"), state.marks);
+}
+
+function finish() {
+  state.done = true;
+  stopTimer();
+  const daily = state.kind === "daily";
+  let best = null, isNew = false;
+  if (daily) {
+    recordResult();
+    saveDaily();
+    showPlacard();
+  } else {
+    best = getBest();
+    if (best == null || state.elapsed < best) { best = state.elapsed; isNew = true; try { localStorage.setItem(bestKey(), String(best)); } catch {} }
+  }
+  refresh();
+  showEndSheet(isNew, best);
+}
+
+function showEndSheet(isNew, best) {
+  const daily = state.kind === "daily";
+  const modeName = { capital: "capitals", flag: "flags", currency: "currencies", population: "populations", mix: "a mix of clues" }[state.mode];
+  if (daily) {
+    $("end-title").textContent = "No. " + state.n + " cleared in " + fmtTime(state.elapsed);
+    $("end-sum").textContent = `${MODE_NAME[state.mode]} · ${dateOfNumber(state.n).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}. Same board as everyone else today.`;
+    const st = computeStats();
+    $("end-side").textContent = st.streak;
+    $("end-side-l").textContent = st.streak === 1 ? "day streak" : "day streak";
+    renderMarks($("end-marks"), state.marks);
+    $("share-text").value = shareText();
+    $("share-text").rows = 2 + markRows(state.marks).length;
+    startCountdown();
+  } else {
+    $("end-title").textContent = isNew ? "Board cleared. New best!" : "Board cleared";
+    $("end-sum").textContent = `${state.size} countries matched to ${modeName} in ${fmtTime(state.elapsed)}${state.deal === "classic" ? " on a classic random deal" : ""}.`;
+    $("end-side").textContent = best == null ? "–" : fmtTime(best);
+    $("end-side-l").textContent = "best";
+    clearInterval(cdTimer);
+  }
+  $("end-time").textContent = fmtTime(state.elapsed);
+  $("end-miss").textContent = state.mistakes;
+  $("end-hints").textContent = state.hints;
+  $("end-share").hidden = !daily;
+  $("end-next").hidden = !daily;
+  $("btn-again").hidden = daily;
+  $("btn-end-practice").hidden = !daily;
+  const list = state.log.slice().sort((a, b) => BY_CODE[a.code][1].localeCompare(BY_CODE[b.code][1]));
+  $("recap").innerHTML = list.map(e => {
+    const c = BY_CODE[e.code];
+    const v = e.kind === "flag" ? `<span class="flag">${flagOf(c[0])}</span>` : e.kind === "currency" ? `${c[4]} (${c[5]})` : valueOf(c, e.kind);
+    return `<li><span>${c[1]}</span><span>${v}</span></li>`;
+  }).join("");
+  openSheet("sheet-end");
+}
+
+function showStats() {
+  const st = computeStats();
+  $("s-played").textContent = st.played;
+  $("s-streak").textContent = st.streak;
+  $("s-max").textContent = st.max;
+  $("s-avg").textContent = st.avg == null ? "–" : fmtTime(st.avg);
+  $("s-best").textContent = st.best == null ? "–" : fmtTime(st.best);
+  const maxN = Math.max(1, ...st.dist.map(d => d.n));
+  const mine = state && state.kind === "daily" && state.done ? state.elapsed : null;
+  $("s-bars").innerHTML = st.dist.map(d => {
+    const me = mine != null && mine >= d.lo && mine < d.hi;
+    const w = d.n ? Math.max(8, Math.round(100 * d.n / maxN)) : 0;
+    return `<div class="bar${d.n ? "" : " empty"}"><span>${d.label}</span><b class="${me ? "me" : ""}" style="width:${d.n ? w + "%" : "26px"}">${d.n}</b></div>`;
+  }).join("");
+  $("stats-sum").textContent = st.played
+    ? `${st.played} daily ${st.played === 1 ? "puzzle" : "puzzles"} cleared. Practice boards don't count.`
+    : "No daily puzzles cleared yet. Practice boards don't count.";
+  openSheet("sheet-stats");
+}
+
+// ---------- overlay ----------
+function openSheet(id) {
+  ["sheet-end", "sheet-stats", "sheet-help"].forEach(s => { $(s).hidden = s !== id; });
+  $("overlay").hidden = false;
+}
+function closeOverlay() { $("overlay").hidden = true; clearInterval(cdTimer); }
+$("overlay").addEventListener("click", e => { if (e.target === $("overlay")) closeOverlay(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("overlay").hidden) closeOverlay(); });
+
+// ---------- tabs and wiring ----------
+function setTab(t) {
+  if (state && state.kind === "daily") saveDaily();
+  tab = t;
+  $("tab-daily").setAttribute("aria-selected", t === "daily");
+  $("tab-practice").setAttribute("aria-selected", t === "practice");
+  $("panel-daily").hidden = t !== "daily";
+  $("panel-practice").hidden = t !== "practice";
+  stopTimer();
+  closeOverlay();
+  if (t === "daily") loadDaily(); else fresh();
+}
+const modeVal = () => document.querySelector('input[name="mode"]:checked').value;
+const sizeVal = () => +document.querySelector('input[name="size"]:checked').value;
+const dealVal = () => document.querySelector('input[name="deal"]:checked').value;
+const fresh = () => { $("placard").hidden = true; newPractice(modeVal(), sizeVal(), dealVal()); };
+const toPractice = () => setTab("practice");
+
+$("tab-daily").addEventListener("click", () => setTab("daily"));
+$("tab-practice").addEventListener("click", toPractice);
+$("btn-new").addEventListener("click", fresh);
+$("btn-again").addEventListener("click", fresh);
+$("btn-end-practice").addEventListener("click", toPractice);
+$("pl-practice").addEventListener("click", toPractice);
+$("pl-results").addEventListener("click", () => showEndSheet(false, null));
+$("btn-close").addEventListener("click", closeOverlay);
+$("btn-hint").addEventListener("click", hint);
+$("btn-shuffle").addEventListener("click", reshuffle);
+$("btn-stuck-shuffle").addEventListener("click", reshuffle);
+$("btn-share").addEventListener("click", copyResult);
+$("btn-next").addEventListener("click", () => setTab("daily"));
+$("btn-stats").addEventListener("click", showStats);
+$("btn-stats-close").addEventListener("click", closeOverlay);
+$("btn-help").addEventListener("click", () => openSheet("sheet-help"));
+$("btn-help-close").addEventListener("click", () => { LS.set(KEY.help, 1); closeOverlay(); });
+document.querySelectorAll('input[name="mode"], input[name="size"], input[name="deal"]').forEach(el => el.addEventListener("change", fresh));
+document.fonts && document.fonts.ready.then(() => { fitAllText(); fit(); });
+
+// Carry the game across a republish.
+function snapshot() {
+  saveDaily();
+  return { tab, practice: state && state.kind === "practice" ? snapshotOf(state) : null };
+}
+function start(data) {
+  if (data && data.tab === "practice" && data.practice && data.practice.tiles) {
+    const p = data.practice;
+    document.querySelector(`input[name="mode"][value="${p.mode}"]`).checked = true;
+    document.querySelector(`input[name="size"][value="${p.size}"]`).checked = true;
+    document.querySelector(`input[name="deal"][value="${p.deal || "fair"}"]`).checked = true;
+    tab = "practice";
+    $("tab-daily").setAttribute("aria-selected", "false");
+    $("tab-practice").setAttribute("aria-selected", "true");
+    $("panel-daily").hidden = true;
+    $("panel-practice").hidden = false;
+    state = { ...baseState(), ...p, deal: p.deal || "fair", kind: "practice", running: false, sel: -1 };
+    mount();
+    setFact("Resumed", "Your board is back where you left it.");
+    return;
+  }
+  setTab("daily");
+  if (!LS.get(KEY.help)) openSheet("sheet-help");
+  else if (state.done) showEndSheet(false, null);
+}
+if (window.claude?.hot?.snapshot) window.claude.hot.snapshot(snapshot);
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
