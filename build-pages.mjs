@@ -1,7 +1,7 @@
-// Wraps index.html (the artifact source, which has no <html>/<head>/<body>)
+// Wraps index.html (and copies flags/ alongside it) (the artifact source, which has no <html>/<head>/<body>)
 // into a complete page at docs/index.html for GitHub Pages.
 // Run: node build-pages.mjs
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, cpSync } from "node:fs";
 
 const body = readFileSync("index.html", "utf8");
 const head = `<!doctype html>
@@ -25,4 +25,5 @@ const tail = `
 `;
 mkdirSync("docs", { recursive: true });
 writeFileSync("docs/index.html", head + body + tail);
+cpSync("flags", "docs/flags", { recursive: true });
 console.log(`docs/index.html written (${(head.length + body.length + tail.length).toLocaleString()} bytes)`);

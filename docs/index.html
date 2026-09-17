@@ -181,6 +181,8 @@
   .seg label:last-child { border-right: 0; }
   .seg input:checked + label { background: var(--ink); color: var(--panel); font-weight: 700; }
   .seg input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: -2px; }
+  .seg input:disabled + label { opacity: .38; cursor: default; }
+  .group[hidden] { display: none; }
 
   .actions { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
   button {
@@ -284,12 +286,18 @@
   .tile .cf .flag-img { width: 40px; height: 30px; }
   .tile.k-flag .face .flag-img { width: 68px; height: 51px; border-radius: 4px; }
   .flag .flag-img { width: 28px; height: 21px; margin: 0 2px; vertical-align: -5px; }
+  /* US state flags keep their own proportions (Ohio is a pennant). */
+  .flag-img.us { width: auto; height: auto; max-width: 40px; max-height: 30px; }
+  .tile.k-flag .face .flag-img.us { max-width: 74px; max-height: 51px; }
+  .flag .flag-img.us { max-width: 30px; max-height: 21px; }
   .tile.has-flag .face { margin-top: 4px; }
   .tile.k-name .face { font-weight: 800; }
   .tile.k-capital .kind { color: #B5301F; }
   .tile.k-population .kind, .tile.k-population .face { color: #245A9E; }
   .tile.k-currency .kind, .tile.k-currency .face { color: #2A7245; }
   .tile.k-flag .kind { color: #C6962B; }
+  .tile.k-years .kind, .tile.k-years .face { color: #245A9E; }
+  .tile.k-number .kind, .tile.k-number .face { color: #2A7245; }
   .tile.k-flag .face {
     font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
     font-size: 54px;
@@ -533,14 +541,27 @@
   <section class="strip" id="panel-practice" hidden>
     <div class="controls">
       <div class="group">
-        <span>Match countries to</span>
-        <div class="seg" role="radiogroup" aria-label="Match mode">
-          <input type="radio" name="mode" id="mode-capital" value="capital" checked><label for="mode-capital">Capitals</label>
-          <input type="radio" name="mode" id="mode-flag" value="flag"><label for="mode-flag">Flags</label>
-          <input type="radio" name="mode" id="mode-currency" value="currency"><label for="mode-currency">Currencies</label>
-          <input type="radio" name="mode" id="mode-population" value="population"><label for="mode-population">Populations</label>
-          <input type="radio" name="mode" id="mode-mix" value="mix"><label for="mode-mix">Mix</label>
+        <span>Deck</span>
+        <div class="seg" role="radiogroup" aria-label="Deck">
+          <input type="radio" name="deck" id="deck-world" value="world" checked><label for="deck-world">World</label>
+          <input type="radio" name="deck" id="deck-states" value="states"><label for="deck-states">US states</label>
+          <input type="radio" name="deck" id="deck-presidents" value="presidents"><label for="deck-presidents">US presidents</label>
         </div>
+      </div>
+      <div class="group" id="group-region">
+        <span>Region</span>
+        <div class="seg" role="radiogroup" aria-label="Region">
+          <input type="radio" name="region" id="region-all" value="all" checked><label for="region-all">All</label>
+          <input type="radio" name="region" id="region-africa" value="africa"><label for="region-africa">Africa</label>
+          <input type="radio" name="region" id="region-americas" value="americas"><label for="region-americas">Americas</label>
+          <input type="radio" name="region" id="region-asia" value="asia"><label for="region-asia">Asia</label>
+          <input type="radio" name="region" id="region-europe" value="europe"><label for="region-europe">Europe</label>
+          <input type="radio" name="region" id="region-oceania" value="oceania"><label for="region-oceania">Oceania</label>
+        </div>
+      </div>
+      <div class="group">
+        <span id="mode-label">Match countries to</span>
+        <div class="seg" id="mode-seg" role="radiogroup" aria-label="Match mode"></div>
       </div>
       <div class="group">
         <span>Pairs</span>
@@ -597,7 +618,7 @@
     <div class="stuck-actions"><button id="btn-stuck-shuffle" type="button" class="primary">Shuffle the rest</button></div>
   </div>
 
-  <p class="how">197 countries in the deck. Populations are 2024 estimates; capitals follow the seat of government where a country has more than one.</p>
+  <p class="how" id="deck-note">197 countries in the deck. Populations are 2024 estimates; capitals follow the seat of government where a country has more than one.</p>
 </div>
 
 <div class="overlay" id="overlay" hidden>
@@ -879,11 +900,102 @@ const DATA = [
 ["ZM","Zambia","Lusaka",21.3,"Zambian kwacha","ZMW"],
 ["ZW","Zimbabwe","Harare",16.6,"Zimbabwe gold (ZiG)","ZWG"],
 ];
-const BY_CODE = Object.fromEntries(DATA.map(c => [c[0], c]));
+// Regions for the practice tab (UN geoscheme, with Cyprus and Russia in Europe and the Caucasus in Asia).
+const REGIONS = {
+  africa: "DZ AO BJ BW BF BI CV CM CF TD KM CG CD CI DJ EG GQ ER SZ ET GA GM GH GN GW KE LS LR LY MG MW ML MR MU MA MZ NA NE NG RW ST SN SC SL SO ZA SS SD TZ TG TN UG ZM ZW",
+  americas: "AG AR BS BB BZ BO BR CA CL CO CR CU DM DO EC SV GD GT GY HT HN JM MX NI PA PY PE KN LC VC SR TT US UY VE",
+  asia: "AF AM AZ BH BD BT BN KH CN GE IN ID IR IQ IL JP JO KZ KW KG LA LB MY MV MN MM NP KP OM PK PS PH QA SA SG KR LK SY TW TJ TH TL TR TM AE UZ VN YE",
+  europe: "AL AD AT BY BE BA BG HR CY CZ DK EE FI FR DE GR HU IS IE IT XK LV LI LT LU MT MD MC ME NL MK NO PL PT RO RU SM RS SK SI ES SE CH UA GB VA",
+  oceania: "AU FJ KI MH FM NR NZ PW PG WS SB TO TV VU",
+};
+const REGION_OF = {};
+for (const [r, codes] of Object.entries(REGIONS)) for (const c of codes.split(" ")) REGION_OF[c] = r;
+const REGION_NAME = { all: "the world", africa: "Africa", americas: "the Americas", asia: "Asia", europe: "Europe", oceania: "Oceania" };
+
+// US states: [code, state, capital]. Flags are local PNGs (flags/us-xx.png), public-domain renders from Wikimedia Commons.
+const STATES = [
+["us-al","Alabama","Montgomery"],["us-ak","Alaska","Juneau"],["us-az","Arizona","Phoenix"],["us-ar","Arkansas","Little Rock"],
+["us-ca","California","Sacramento"],["us-co","Colorado","Denver"],["us-ct","Connecticut","Hartford"],["us-de","Delaware","Dover"],
+["us-fl","Florida","Tallahassee"],["us-ga","Georgia","Atlanta"],["us-hi","Hawaii","Honolulu"],["us-id","Idaho","Boise"],
+["us-il","Illinois","Springfield"],["us-in","Indiana","Indianapolis"],["us-ia","Iowa","Des Moines"],["us-ks","Kansas","Topeka"],
+["us-ky","Kentucky","Frankfort"],["us-la","Louisiana","Baton Rouge"],["us-me","Maine","Augusta"],["us-md","Maryland","Annapolis"],
+["us-ma","Massachusetts","Boston"],["us-mi","Michigan","Lansing"],["us-mn","Minnesota","Saint Paul"],["us-ms","Mississippi","Jackson"],
+["us-mo","Missouri","Jefferson City"],["us-mt","Montana","Helena"],["us-ne","Nebraska","Lincoln"],["us-nv","Nevada","Carson City"],
+["us-nh","New Hampshire","Concord"],["us-nj","New Jersey","Trenton"],["us-nm","New Mexico","Santa Fe"],["us-ny","New York","Albany"],
+["us-nc","North Carolina","Raleigh"],["us-nd","North Dakota","Bismarck"],["us-oh","Ohio","Columbus"],["us-ok","Oklahoma","Oklahoma City"],
+["us-or","Oregon","Salem"],["us-pa","Pennsylvania","Harrisburg"],["us-ri","Rhode Island","Providence"],["us-sc","South Carolina","Columbia"],
+["us-sd","South Dakota","Pierre"],["us-tn","Tennessee","Nashville"],["us-tx","Texas","Austin"],["us-ut","Utah","Salt Lake City"],
+["us-vt","Vermont","Montpelier"],["us-va","Virginia","Richmond"],["us-wa","Washington","Olympia"],["us-wv","West Virginia","Charleston"],
+["us-wi","Wisconsin","Madison"],["us-wy","Wyoming","Cheyenne"],
+];
+
+// US presidents: [code, name, terms as [start, end or null], ordinals, party]. One tile per person, so Cleveland and Trump carry both terms.
+const PRESIDENTS = [
+["p01","George Washington",[[1789,1797]],[1],"no party"],
+["p02","John Adams",[[1797,1801]],[2],"Federalist"],
+["p03","Thomas Jefferson",[[1801,1809]],[3],"Democratic-Republican"],
+["p04","James Madison",[[1809,1817]],[4],"Democratic-Republican"],
+["p05","James Monroe",[[1817,1825]],[5],"Democratic-Republican"],
+["p06","John Quincy Adams",[[1825,1829]],[6],"Democratic-Republican"],
+["p07","Andrew Jackson",[[1829,1837]],[7],"Democratic"],
+["p08","Martin Van Buren",[[1837,1841]],[8],"Democratic"],
+["p09","William Henry Harrison",[[1841,1841]],[9],"Whig"],
+["p10","John Tyler",[[1841,1845]],[10],"Whig"],
+["p11","James K. Polk",[[1845,1849]],[11],"Democratic"],
+["p12","Zachary Taylor",[[1849,1850]],[12],"Whig"],
+["p13","Millard Fillmore",[[1850,1853]],[13],"Whig"],
+["p14","Franklin Pierce",[[1853,1857]],[14],"Democratic"],
+["p15","James Buchanan",[[1857,1861]],[15],"Democratic"],
+["p16","Abraham Lincoln",[[1861,1865]],[16],"Republican"],
+["p17","Andrew Johnson",[[1865,1869]],[17],"Democratic"],
+["p18","Ulysses S. Grant",[[1869,1877]],[18],"Republican"],
+["p19","Rutherford B. Hayes",[[1877,1881]],[19],"Republican"],
+["p20","James A. Garfield",[[1881,1881]],[20],"Republican"],
+["p21","Chester A. Arthur",[[1881,1885]],[21],"Republican"],
+["p22","Grover Cleveland",[[1885,1889],[1893,1897]],[22,24],"Democratic"],
+["p23","Benjamin Harrison",[[1889,1893]],[23],"Republican"],
+["p25","William McKinley",[[1897,1901]],[25],"Republican"],
+["p26","Theodore Roosevelt",[[1901,1909]],[26],"Republican"],
+["p27","William Howard Taft",[[1909,1913]],[27],"Republican"],
+["p28","Woodrow Wilson",[[1913,1921]],[28],"Democratic"],
+["p29","Warren G. Harding",[[1921,1923]],[29],"Republican"],
+["p30","Calvin Coolidge",[[1923,1929]],[30],"Republican"],
+["p31","Herbert Hoover",[[1929,1933]],[31],"Republican"],
+["p32","Franklin D. Roosevelt",[[1933,1945]],[32],"Democratic"],
+["p33","Harry S. Truman",[[1945,1953]],[33],"Democratic"],
+["p34","Dwight D. Eisenhower",[[1953,1961]],[34],"Republican"],
+["p35","John F. Kennedy",[[1961,1963]],[35],"Democratic"],
+["p36","Lyndon B. Johnson",[[1963,1969]],[36],"Democratic"],
+["p37","Richard Nixon",[[1969,1974]],[37],"Republican"],
+["p38","Gerald Ford",[[1974,1977]],[38],"Republican"],
+["p39","Jimmy Carter",[[1977,1981]],[39],"Democratic"],
+["p40","Ronald Reagan",[[1981,1989]],[40],"Republican"],
+["p41","George H. W. Bush",[[1989,1993]],[41],"Republican"],
+["p42","Bill Clinton",[[1993,2001]],[42],"Democratic"],
+["p43","George W. Bush",[[2001,2009]],[43],"Republican"],
+["p44","Barack Obama",[[2009,2017]],[44],"Democratic"],
+["p45","Donald Trump",[[2017,2021],[2025,null]],[45,47],"Republican"],
+["p46","Joe Biden",[[2021,2025]],[46],"Democratic"],
+];
+
+const BY_CODE = Object.fromEntries([...DATA, ...STATES, ...PRESIDENTS].map(c => [c[0], c]));
 const KINDS = ["capital", "flag", "currency", "population"];
-const KIND_LABEL = { name: "Country", capital: "Capital", flag: "Flag", currency: "Currency", population: "Population" };
+const KIND_LABEL = { name: "Country", capital: "Capital", flag: "Flag", currency: "Currency", population: "Population", years: "In office", number: "Number" };
 const MODES = ["capital", "flag", "currency", "population", "mix"];
-const MODE_NAME = { capital: "Capitals", flag: "Flags", currency: "Currencies", population: "Populations", mix: "Mixed clues" };
+const MODE_NAME = { capital: "Capitals", flag: "Flags", currency: "Currencies", population: "Populations", years: "Years in office", number: "Numbers", mix: "Mixed clues" };
+// Decks for the practice tab. The daily always uses the world deck, whole world.
+const DECKS = {
+  world: { name: "World", noun: "countries", nameLabel: "Country", kinds: KINDS, hasFlag: true,
+    pool: region => region === "all" ? DATA : DATA.filter(c => REGION_OF[c[0]] === region),
+    note: "197 countries in the deck. Populations are 2024 estimates; capitals follow the seat of government where a country has more than one." },
+  states: { name: "US states", noun: "states", nameLabel: "State", kinds: ["capital", "flag"], hasFlag: true,
+    pool: () => STATES,
+    note: "All 50 states. Flags are the current official designs, including the 2024 Minnesota and Utah flags." },
+  presidents: { name: "US presidents", noun: "presidents", nameLabel: "President", kinds: ["years", "number"], hasFlag: false,
+    pool: () => PRESIDENTS,
+    note: "45 presidents across 47 presidencies. Grover Cleveland and Donald Trump served non-consecutive terms, so their tiles carry both." },
+};
+function deckOf(s) { return DECKS[(s && s.deck) || "world"]; }
 
 // ---------- the daily calendar ----------
 const NAME = "Mahgeong";
@@ -935,13 +1047,18 @@ const LS = {
 function flagOf(code) { return [...code].map(ch => String.fromCodePoint(0x1F1E6 + ch.charCodeAt(0) - 65)).join(""); }
 const FLAG_CDN = "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/4x3/";
 // SVG flag image. If the CDN is unreachable the image is swapped for the emoji flag (see the error listener below).
-function flagImg(code) { return `<img class="flag-img" src="${FLAG_CDN}${code.toLowerCase()}.svg" alt="" draggable="false" data-code="${code}">`; }
+function flagImg(code) {
+  const us = code.startsWith("us-");
+  const src = us ? `flags/${code}.png` : `${FLAG_CDN}${code.toLowerCase()}.svg`;
+  return `<img class="flag-img${us ? " us" : ""}" src="${src}" alt="" draggable="false" data-code="${code}">`;
+}
 document.addEventListener("error", e => {
   const img = e.target;
   if (!(img instanceof HTMLImageElement) || !img.classList.contains("flag-img")) return;
   const span = document.createElement("span");
   span.style.fontFamily = '"Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
-  span.textContent = flagOf(img.dataset.code);
+  const code = img.dataset.code;
+  span.textContent = code.startsWith("us-") ? code.slice(3).toUpperCase() : flagOf(code);
   img.replaceWith(span);
 }, true);
 function popText(m) {
@@ -966,12 +1083,17 @@ function currencyShort(name) {
   const rest = name.split(" ").slice(1).join(" ");
   return rest.charAt(0).toUpperCase() + rest.slice(1);
 }
+const ORD = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
+function termsText(c) { return c[2].map(([a, b]) => b == null ? "since " + a : a + "–" + b).join(" · "); }
+function ordinalsText(c) { return c[3].map(ORD).join(" & "); }
 function valueOf(c, kind) {
   switch (kind) {
     case "capital": return c[2];
     case "flag": return flagOf(c[0]);
     case "currency": return currencyShort(c[4]);
     case "population": return popText(c[3]);
+    case "years": return termsText(c);
+    case "number": return ordinalsText(c);
   }
 }
 function uniqKey(c, kind) { return kind === "currency" ? currencyShort(c[4]).toLowerCase() : valueOf(c, kind); }
@@ -984,6 +1106,8 @@ function factFor(c, kind) {
     case "flag": return `<span class="flag">${flagImg(c[0])}</span> is the flag of <b>${n}</b>.`;
     case "currency": return `<b>${n}</b> uses the <b>${c[4]}</b> (${c[5]}).`;
     case "population": return `<b>${n}</b> is home to about <b>${popText(c[3]).replace("≈ ", "")}</b> people.`;
+    case "years": case "number":
+      return `<b>${n}</b> ${c[2].some(t => t[1] == null) ? "is" : "was"} the <b>${ordinalsText(c)}</b> president, in office <b>${termsText(c)}</b> (${c[4]}).`;
   }
 }
 
@@ -1039,23 +1163,39 @@ function randomDeal(positions) {
   return order;
 }
 function dealOrder(positions, deal) { return deal === "classic" ? randomDeal(positions) : generate(positions); }
-function pickCountries(n, mode) {
-  const used = { capital: new Set(), flag: new Set(), currency: new Set(), population: new Set() };
-  const out = [];
-  for (const c of shuffle(DATA.slice())) {
-    const kind = mode === "mix" ? KINDS[rnd(KINDS.length)] : mode;
+// The world/whole-world path must keep the exact same RNG call sequence: it seeds every daily board.
+function pickCountries(n, mode, pool = DATA, kinds = KINDS) {
+  const used = Object.fromEntries(kinds.map(k => [k, new Set()]));
+  const out = [], skipped = [];
+  for (const c of shuffle(pool.slice())) {
+    const kind = mode === "mix" ? kinds[rnd(kinds.length)] : mode;
     const key = uniqKey(c, kind);
-    if (used[kind].has(key)) continue;
+    if (used[kind].has(key)) { skipped.push(c); continue; }
     used[kind].add(key);
     out.push({ code: c[0], kind });
     if (out.length === n) break;
   }
+  // A small pool (a region on a mixed deal) can run short; give the skipped items another clue kind.
+  if (out.length < n && mode === "mix") for (const c of skipped) {
+    for (const kind of kinds) {
+      const key = uniqKey(c, kind);
+      if (used[kind].has(key)) continue;
+      used[kind].add(key); out.push({ code: c[0], kind }); break;
+    }
+    if (out.length === n) break;
+  }
   return out;
 }
-function makeTiles(mode, size, deal) {
+// How many pairs a pool can supply for a mode. Capitals are unique, so mixed deals can always use the whole pool.
+function capacity(pool, mode) {
+  if (mode === "mix") return pool.length;
+  return new Set(pool.map(c => uniqKey(c, mode))).size;
+}
+function makeTiles(mode, size, deal, pool = DATA, kinds = KINDS) {
   let order = null;
   for (let k = 0; k < 20 && !order; k++) order = dealOrder(LAYOUTS[size], deal);
-  const pairs = pickCountries(size, mode);
+  const pairs = pickCountries(size, mode, pool, kinds);
+  if (pairs.length < size) throw new Error("pool too small for " + size + " pairs");
   const tiles = [];
   order.forEach(([a, b], i) => {
     const p = pairs[i];
@@ -1072,22 +1212,25 @@ const $ = id => document.getElementById(id);
 const board = $("board"), viewport = $("viewport");
 
 function baseState(extra) {
-  return { mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
+  return { deck: "world", region: "all", mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
 }
 function snapshotOf(s) {
-  const { kind, n, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag } = s;
-  return { kind, n, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
+  const { kind, n, deck, region, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag } = s;
+  return { kind, n, deck, region, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
 }
 function saveDaily() { if (state && state.kind === "daily") LS.set(KEY.daily + state.n, snapshotOf(state)); }
 
-function newPractice(mode, size, deal) {
-  state = baseState({ kind: "practice", mode, size, deal, tiles: makeTiles(mode, size, deal) });
+function newPractice(deck, region, mode, size, deal) {
+  const d = DECKS[deck];
+  const tiles = makeTiles(mode, size, deal, d.pool(region), d.kinds);
+  state = baseState({ kind: "practice", deck, region, mode, size, deal, tiles });
   stopTimer();
   mount();
   $("placard").hidden = true;
+  const what = d.noun.replace(/ies$/, "y").replace(/s$/, "");
   setFact("How to play", deal === "classic"
-    ? "Classic deal: the tiles landed at random, so this board may not be clearable. Tap two free tiles from the same country. If you dead-end, shuffle or redeal."
-    : "Tap two free tiles that belong to the same country. A tile is free when nothing sits on top of it and its left or right side is open. Shaded tiles are blocked.");
+    ? `Classic deal: the tiles landed at random, so this board may not be clearable. Tap two free tiles from the same ${what}. If you dead-end, shuffle or redeal.`
+    : `Tap two free tiles that belong to the same ${what}. A tile is free when nothing sits on top of it and its left or right side is open. Shaded tiles are blocked.`);
   closeOverlay();
 }
 
@@ -1150,13 +1293,14 @@ function mount() {
     el.tabIndex = 0;
     const c = BY_CODE[t.code];
     const face = t.kind === "name" ? c[1] : valueOf(c, t.kind);
-    const shown = t.kind === "flag" ? flagImg(c[0]) : face.replace(/\S+-\S+/g, m => `<span class="nb">${m}</span>`);
+    const shown = t.kind === "flag" ? flagImg(c[0]) : face.replace(/\S+[-–]\S+/g, m => `<span class="nb">${m}</span>`);
     // Country tiles carry their flag unless the flag is the thing being matched.
+    const deck = deckOf(state);
     const partner = state.tiles.find(o => o !== t && o.code === t.code);
-    const showFlag = t.kind === "name" && partner && partner.kind !== "flag";
+    const showFlag = deck.hasFlag && t.kind === "name" && partner && partner.kind !== "flag";
     if (showFlag) el.classList.add("has-flag");
-    el.innerHTML = `<span class="kind">${KIND_LABEL[t.kind]}</span>${showFlag ? `<span class="cf">${flagImg(c[0])}</span>` : ""}<span class="face">${shown}</span>`;
-    el.setAttribute("aria-label", KIND_LABEL[t.kind] + ": " + face);
+    el.innerHTML = `<span class="kind">${t.kind === "name" ? deck.nameLabel : KIND_LABEL[t.kind]}</span>${showFlag ? `<span class="cf">${flagImg(c[0])}</span>` : ""}<span class="face">${shown}</span>`;
+    el.setAttribute("aria-label", (t.kind === "name" ? deck.nameLabel : KIND_LABEL[t.kind]) + ": " + face);
     el.addEventListener("click", () => onTile(i));
     el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTile(i); } });
     if (!t.alive) el.classList.add("gone");
@@ -1327,7 +1471,10 @@ function reshuffle() {
 }
 
 // ---------- results, stats, sharing ----------
-function bestKey() { return KEY.best + state.mode + "-" + state.size + (state.deal === "classic" ? "-classic" : ""); }
+function bestKey() {
+  const scope = (state.deck && state.deck !== "world" ? state.deck + "-" : "") + (state.region && state.region !== "all" ? state.region + "-" : "");
+  return KEY.best + scope + state.mode + "-" + state.size + (state.deal === "classic" ? "-classic" : "");
+}
 function getBest() { try { const v = localStorage.getItem(bestKey()); return v == null ? null : +v; } catch { return null; } }
 
 function computeStats() {
@@ -1429,7 +1576,7 @@ function finish() {
 
 function showEndSheet(isNew, best) {
   const daily = state.kind === "daily";
-  const modeName = { capital: "capitals", flag: "flags", currency: "currencies", population: "populations", mix: "a mix of clues" }[state.mode];
+  const modeName = { capital: "capitals", flag: "flags", currency: "currencies", population: "populations", years: "years in office", number: "numbers", mix: "a mix of clues" }[state.mode];
   if (daily) {
     $("end-title").textContent = "No. " + state.n + " cleared in " + fmtTime(state.elapsed);
     $("end-sum").textContent = `${MODE_NAME[state.mode]} · ${dateOfNumber(state.n).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}. Same board as everyone else today.`;
@@ -1442,7 +1589,9 @@ function showEndSheet(isNew, best) {
     startCountdown();
   } else {
     $("end-title").textContent = isNew ? "Board cleared. New best!" : "Board cleared";
-    $("end-sum").textContent = `${state.size} countries matched to ${modeName} in ${fmtTime(state.elapsed)}${state.deal === "classic" ? " on a classic random deal" : ""}.`;
+    const d = deckOf(state);
+    const where = state.deck === "world" && state.region !== "all" ? ` from ${REGION_NAME[state.region]}` : "";
+    $("end-sum").textContent = `${state.size} ${d.noun}${where} matched to ${modeName} in ${fmtTime(state.elapsed)}${state.deal === "classic" ? " on a classic random deal" : ""}.`;
     $("end-side").textContent = best == null ? "–" : fmtTime(best);
     $("end-side-l").textContent = "best";
     clearInterval(cdTimer);
@@ -1504,10 +1653,41 @@ function setTab(t) {
   closeOverlay();
   if (t === "daily") loadDaily(); else fresh();
 }
-const modeVal = () => document.querySelector('input[name="mode"]:checked').value;
-const sizeVal = () => +document.querySelector('input[name="size"]:checked').value;
-const dealVal = () => document.querySelector('input[name="deal"]:checked').value;
-const fresh = () => { $("placard").hidden = true; newPractice(modeVal(), sizeVal(), dealVal()); };
+const radioVal = name => { const el = document.querySelector(`input[name="${name}"]:checked`); return el ? el.value : null; };
+const setRadio = (name, v) => { const el = document.querySelector(`input[name="${name}"][value="${v}"]`); if (el) el.checked = true; };
+const deckVal = () => radioVal("deck");
+const regionVal = () => deckVal() === "world" ? radioVal("region") : "all";
+const modeVal = () => radioVal("mode");
+const sizeVal = () => +radioVal("size");
+const dealVal = () => radioVal("deal");
+// Rebuild the mode buttons for the chosen deck, keeping the current mode where it still exists.
+function renderModes(keep) {
+  const d = DECKS[deckVal()];
+  const modes = [...d.kinds, "mix"];
+  const pick = modes.includes(keep) ? keep : modes[0];
+  $("mode-seg").innerHTML = modes.map(m => `<input type="radio" name="mode" id="mode-${m}" value="${m}"${m === pick ? " checked" : ""}><label for="mode-${m}">${m === "mix" ? "Mix" : MODE_NAME[m]}</label>`).join("");
+  $("mode-label").textContent = `Match ${d.noun} to`;
+  $("group-region").hidden = deckVal() !== "world";
+  $("deck-note").textContent = d.note;
+}
+// Grey out modes that can't fill even the smallest board (Oceania has only five currencies).
+function fitModes() {
+  const d = DECKS[deckVal()], pool = d.pool(regionVal());
+  const radios = [...document.querySelectorAll('input[name="mode"]')];
+  radios.forEach(r => { r.disabled = capacity(pool, r.value) < 12; });
+  const ok = radios.filter(r => !r.disabled);
+  if (ok.length && !ok.some(r => r.checked)) ok[0].checked = true;
+}
+// Grey out board sizes the pool can't fill (Oceania has 14 countries; the euro eats most of Europe's currencies).
+function fitSizes() {
+  const d = DECKS[deckVal()];
+  const cap = capacity(d.pool(regionVal()), modeVal());
+  const radios = [...document.querySelectorAll('input[name="size"]')];
+  radios.forEach(r => { r.disabled = +r.value > cap; });
+  const ok = radios.filter(r => !r.disabled);
+  if (ok.length && !ok.some(r => r.checked)) ok[ok.length - 1].checked = true;
+}
+const fresh = () => { $("placard").hidden = true; fitSizes(); newPractice(deckVal(), regionVal(), modeVal(), sizeVal(), dealVal()); };
 const toPractice = () => setTab("practice");
 
 $("tab-daily").addEventListener("click", () => setTab("daily"));
@@ -1527,7 +1707,13 @@ $("btn-stats").addEventListener("click", showStats);
 $("btn-stats-close").addEventListener("click", closeOverlay);
 $("btn-help").addEventListener("click", () => openSheet("sheet-help"));
 $("btn-help-close").addEventListener("click", () => { LS.set(KEY.help, 1); closeOverlay(); });
-document.querySelectorAll('input[name="mode"], input[name="size"], input[name="deal"]').forEach(el => el.addEventListener("change", fresh));
+document.querySelector("#panel-practice .controls").addEventListener("change", e => {
+  if (e.target.name === "deck") renderModes(modeVal());
+  if (e.target.name === "deck" || e.target.name === "region") fitModes();
+  fresh();
+});
+renderModes("capital");
+fitModes();
 document.fonts && document.fonts.ready.then(() => { fitAllText(); fit(); });
 
 // Carry the game across a republish.
@@ -1538,15 +1724,18 @@ function snapshot() {
 function start(data) {
   if (data && data.tab === "practice" && data.practice && data.practice.tiles) {
     const p = data.practice;
-    document.querySelector(`input[name="mode"][value="${p.mode}"]`).checked = true;
-    document.querySelector(`input[name="size"][value="${p.size}"]`).checked = true;
-    document.querySelector(`input[name="deal"][value="${p.deal || "fair"}"]`).checked = true;
+    setRadio("deck", p.deck || "world");
+    setRadio("region", p.region || "all");
+    renderModes(p.mode);
+    fitModes();
+    setRadio("size", p.size);
+    setRadio("deal", p.deal || "fair");
     tab = "practice";
     $("tab-daily").setAttribute("aria-selected", "false");
     $("tab-practice").setAttribute("aria-selected", "true");
     $("panel-daily").hidden = true;
     $("panel-practice").hidden = false;
-    state = { ...baseState(), ...p, deal: p.deal || "fair", kind: "practice", running: false, sel: -1 };
+    state = { ...baseState(), ...p, deck: p.deck || "world", region: p.region || "all", deal: p.deal || "fair", kind: "practice", running: false, sel: -1 };
     mount();
     setFact("Resumed", "Your board is back where you left it.");
     return;

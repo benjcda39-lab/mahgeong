@@ -1,6 +1,6 @@
 # Mahgeong
 
-A daily geography puzzle played like mahjong solitaire. Clear the board by pairing each country with its capital, flag, currency or population. One board a day, the same for everyone, then a shareable result grid and a streak.
+A daily geography puzzle played like mahjong solitaire. Clear the board by pairing each country with its capital, flag, currency or population. One board a day, the same for everyone, then a shareable result grid and a streak. The Practice tab adds regional decks (Africa, the Americas, Asia, Europe, Oceania), US states with their capitals and flags, and US presidents with their years in office. State flags in `flags/` are public-domain renders from Wikimedia Commons.
 
 - `index.html` is the whole game: one dependency-free file, published as a Claude artifact at https://claude.ai/code/artifact/4d8bba8c-9f88-4bac-b866-814f1c6e9d97. The artifact host wraps it in a doctype and head; `showcase/e2e/walkthrough.mjs` does the same when serving it locally.
 - Puzzle No. 1 is 11 September 2026 (local time). The day number seeds the deal, so every player gets the same board. Keep the epoch and the localStorage keys stable or streaks break.
