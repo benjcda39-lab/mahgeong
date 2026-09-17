@@ -286,10 +286,14 @@
   .tile .cf .flag-img { width: 40px; height: 30px; }
   .tile.k-flag .face .flag-img { width: 68px; height: 51px; border-radius: 4px; }
   .flag .flag-img { width: 28px; height: 21px; margin: 0 2px; vertical-align: -5px; }
-  /* US state flags keep their own proportions (Ohio is a pennant). */
-  .flag-img.us { width: auto; height: auto; max-width: 40px; max-height: 30px; }
-  .tile.k-flag .face .flag-img.us { max-width: 74px; max-height: 51px; }
-  .flag .flag-img.us { max-width: 30px; max-height: 21px; }
+  /* US state flags keep their own proportions: fixed height, width follows. */
+  .flag-img.us, .tile .cf .flag-img.us { width: auto; height: 30px; }
+  .tile.k-flag .face .flag-img.us { width: auto; height: 51px; }
+  .flag .flag-img.us { width: auto; height: 21px; }
+  /* Nepal and Ohio are not rectangles: no backing, no ring, a shadow that follows the outline. */
+  .flag-img.shaped, .tile .cf .flag-img.shaped { width: auto; height: 30px; background: transparent; box-shadow: none; border-radius: 0; filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
+  .tile.k-flag .face .flag-img.shaped { width: auto; height: 51px; }
+  .flag .flag-img.shaped { width: auto; height: 21px; }
   .tile.has-flag .face { margin-top: 4px; }
   .tile.k-name .face { font-weight: 800; }
   .tile.k-capital .kind { color: #B5301F; }
@@ -1047,10 +1051,13 @@ const LS = {
 function flagOf(code) { return [...code].map(ch => String.fromCodePoint(0x1F1E6 + ch.charCodeAt(0) - 65)).join(""); }
 const FLAG_CDN = "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/4x3/";
 // SVG flag image. If the CDN is unreachable the image is swapped for the emoji flag (see the error listener below).
+// Flags that are not rectangles are served locally, cropped to their outline, and drawn without a backing.
+const SHAPED = { NP: "flags/np.svg", "us-oh": "flags/us-oh.png" };
 function flagImg(code) {
   const us = code.startsWith("us-");
-  const src = us ? `flags/${code}.png` : `${FLAG_CDN}${code.toLowerCase()}.svg`;
-  return `<img class="flag-img${us ? " us" : ""}" src="${src}" alt="" draggable="false" data-code="${code}">`;
+  const src = SHAPED[code] || (us ? `flags/${code}.png` : `${FLAG_CDN}${code.toLowerCase()}.svg`);
+  const cls = SHAPED[code] ? " shaped" : us ? " us" : "";
+  return `<img class="flag-img${cls}" src="${src}" alt="" draggable="false" data-code="${code}">`;
 }
 document.addEventListener("error", e => {
   const img = e.target;
