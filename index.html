@@ -1,5 +1,6 @@
 <title>Mahgeong</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Alegreya+Sans:wght@400;500;700;800&family=Noto+Color+Emoji&display=swap">
 <style>
@@ -264,6 +265,11 @@
     line-height: 1;
     margin-top: 14px;
   }
+  /* Flags are SVG images, not emoji: emoji fonts draw some flags wrong (black stripes) on many devices. */
+  .flag-img { display: inline-block; width: 40px; height: 30px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,.14), 0 1px 2px rgba(0,0,0,.12); vertical-align: middle; object-fit: cover; background: #fff; }
+  .tile .cf .flag-img { width: 40px; height: 30px; }
+  .tile.k-flag .face .flag-img { width: 68px; height: 51px; border-radius: 4px; }
+  .flag .flag-img { width: 28px; height: 21px; margin: 0 2px; vertical-align: -5px; }
   .tile.has-flag .face { margin-top: 4px; }
   .tile.k-name .face { font-weight: 800; }
   .tile.k-capital .kind { color: #B5301F; }
@@ -913,6 +919,17 @@ const LS = {
 
 // ---------- helpers ----------
 function flagOf(code) { return [...code].map(ch => String.fromCodePoint(0x1F1E6 + ch.charCodeAt(0) - 65)).join(""); }
+const FLAG_CDN = "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/4x3/";
+// SVG flag image. If the CDN is unreachable the image is swapped for the emoji flag (see the error listener below).
+function flagImg(code) { return `<img class="flag-img" src="${FLAG_CDN}${code.toLowerCase()}.svg" alt="" draggable="false" data-code="${code}">`; }
+document.addEventListener("error", e => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || !img.classList.contains("flag-img")) return;
+  const span = document.createElement("span");
+  span.style.fontFamily = '"Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+  span.textContent = flagOf(img.dataset.code);
+  img.replaceWith(span);
+}, true);
 function popText(m) {
   if (m < 0.001) return "≈ " + Math.round(m * 1e6) + " people";
   if (m < 1) return "≈ " + Math.round(m * 1000) + " thousand";
@@ -950,7 +967,7 @@ function factFor(c, kind) {
   const n = c[1];
   switch (kind) {
     case "capital": return `<b>${c[2]}</b> is the capital of <b>${n}</b>.`;
-    case "flag": return `<span class="flag">${flagOf(c[0])}</span> is the flag of <b>${n}</b>.`;
+    case "flag": return `<span class="flag">${flagImg(c[0])}</span> is the flag of <b>${n}</b>.`;
     case "currency": return `<b>${n}</b> uses the <b>${c[4]}</b> (${c[5]}).`;
     case "population": return `<b>${n}</b> is home to about <b>${popText(c[3]).replace("≈ ", "")}</b> people.`;
   }
@@ -1119,12 +1136,12 @@ function mount() {
     el.tabIndex = 0;
     const c = BY_CODE[t.code];
     const face = t.kind === "name" ? c[1] : valueOf(c, t.kind);
-    const shown = t.kind === "flag" ? face : face.replace(/\S+-\S+/g, m => `<span class="nb">${m}</span>`);
+    const shown = t.kind === "flag" ? flagImg(c[0]) : face.replace(/\S+-\S+/g, m => `<span class="nb">${m}</span>`);
     // Country tiles carry their flag unless the flag is the thing being matched.
     const partner = state.tiles.find(o => o !== t && o.code === t.code);
     const showFlag = t.kind === "name" && partner && partner.kind !== "flag";
     if (showFlag) el.classList.add("has-flag");
-    el.innerHTML = `<span class="kind">${KIND_LABEL[t.kind]}</span>${showFlag ? `<span class="cf">${flagOf(c[0])}</span>` : ""}<span class="face">${shown}</span>`;
+    el.innerHTML = `<span class="kind">${KIND_LABEL[t.kind]}</span>${showFlag ? `<span class="cf">${flagImg(c[0])}</span>` : ""}<span class="face">${shown}</span>`;
     el.setAttribute("aria-label", KIND_LABEL[t.kind] + ": " + face);
     el.addEventListener("click", () => onTile(i));
     el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTile(i); } });
@@ -1262,7 +1279,7 @@ function hint() {
   m.forEach(t => flash(t.el, "hint", 3000));
   const c = BY_CODE[m[0].code];
   const clue = m.find(t => t.kind !== "name");
-  setFact("Hint", `<b>${c[1]}</b> goes with <b>${clue.kind === "flag" ? `<span class="flag">${flagOf(c[0])}</span>` : valueOf(c, clue.kind)}</b>. Both tiles are ringed in gold.`);
+  setFact("Hint", `<b>${c[1]}</b> goes with <b>${clue.kind === "flag" ? `<span class="flag">${flagImg(c[0])}</span>` : valueOf(c, clue.kind)}</b>. Both tiles are ringed in gold.`);
   refresh();
   saveDaily();
 }
@@ -1426,7 +1443,7 @@ function showEndSheet(isNew, best) {
   const list = state.log.slice().sort((a, b) => BY_CODE[a.code][1].localeCompare(BY_CODE[b.code][1]));
   $("recap").innerHTML = list.map(e => {
     const c = BY_CODE[e.code];
-    const v = e.kind === "flag" ? `<span class="flag">${flagOf(c[0])}</span>` : e.kind === "currency" ? `${c[4]} (${c[5]})` : valueOf(c, e.kind);
+    const v = e.kind === "flag" ? `<span class="flag">${flagImg(c[0])}</span>` : e.kind === "currency" ? `${c[4]} (${c[5]})` : valueOf(c, e.kind);
     return `<li><span>${c[1]}</span><span>${v}</span></li>`;
   }).join("");
   openSheet("sheet-end");
