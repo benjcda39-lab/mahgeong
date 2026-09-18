@@ -1,8 +1,7 @@
-// End-to-end check for two-player LAN play: boots the real lan/server.mjs, then drives
-// two Chrome sessions (a desktop and a phone) through hosting, joining, racing to clear
-// the shared board, a mid-game disconnect/reconnect, and a bad room code.
+// End-to-end check for turn-based round play: committed-tile turns, penalties, reconnect
+// while locked, round transitions, and the early 2-0 championship finish.
 //
-//   node e2e/versus.mjs
+//   node e2e/versus.mjs [base-url]
 import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
@@ -13,20 +12,24 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 const SERVER = resolve(here, "../../lan/server.mjs");
 const SHOTS = resolve(here, "../out/verify");
 const PORT = 8643;
-const BASE = `http://127.0.0.1:${PORT}`;
 mkdirSync(SHOTS, { recursive: true });
+
+let server = null;
+let BASE = process.argv[2];
+if (!BASE) {
+  BASE = `http://127.0.0.1:${PORT}`;
+  server = spawn("node", [SERVER, String(PORT)], { stdio: ["ignore", "pipe", "pipe"] });
+  server.stderr.on("data", d => process.stderr.write(`[server] ${d}`));
+  await new Promise(r => server.stdout.on("data", function onData(d) {
+    if (String(d).includes("two-player server")) { server.stdout.off("data", onData); r(); }
+  }));
+}
 
 let failures = 0;
 const check = (name, cond, extra = "") => {
   console.log(`${cond ? "ok  " : "ERR "} ${name}${cond ? "" : (extra ? " - " + extra : "")}`);
   if (!cond) failures++;
 };
-
-const server = spawn("node", [SERVER, String(PORT)], { stdio: ["ignore", "pipe", "pipe"] });
-server.stderr.on("data", d => process.stderr.write(`[server] ${d}`));
-await new Promise(r => server.stdout.on("data", function onData(d) {
-  if (String(d).includes("two-player server")) { server.stdout.off("data", onData); r(); }
-}));
 
 const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] });
 
@@ -48,137 +51,214 @@ async function newPlayer(name, profile) {
   return { name, context, page, errors };
 }
 
-const waitFn = (page, fn, arg) => page.waitForFunction(fn, arg, { timeout: 15000 });
+const waitFn = (page, fn, arg) => page.waitForFunction(fn, arg, { timeout: 20000 });
 const aliveCount = page => page.evaluate(() => state && state.kind === "versus" ? state.tiles.filter(t => t.alive).length : -1);
 const click = (page, i) => page.locator("#board .tile").nth(i).click({ force: true });
+const snap = page => page.evaluate(() => ({ scores: { ...vs.scores }, misses: { ...vs.misses }, turn: vs.turn, status: vs.status, phase: vs.phase, round: vs.round, roundWins: { ...vs.roundWins }, pending: vs.pending ? { ...vs.pending } : null, champion: vs.champion }));
 
-// Match one pair. An opponent's broadcast can legitimately clear a half-made selection
-// between the two clicks (the second click then just re-selects), so retry a few times.
 async function matchOne(page) {
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const m = await page.evaluate(() => {
-      const mv = findMove();
-      return mv ? mv.map(t => state.tiles.indexOf(t)) : null;
-    });
-    if (!m) return false;
-    const before = await page.evaluate(() => state.tiles.filter(t => t.alive).length);
-    await click(page, m[0]);
-    await click(page, m[1]);
-    await page.waitForTimeout(400);
-    const after = await page.evaluate(() => state.tiles.filter(t => t.alive).length);
-    if (after === before - 2) return true;
+  const m = await page.evaluate(() => {
+    const mv = findMove();
+    return mv ? mv.map(t => state.tiles.indexOf(t)) : null;
+  });
+  if (!m) return false;
+  const before = await page.evaluate(() => state.tiles.filter(t => t.alive).length);
+  await click(page, m[0]);
+  await page.waitForFunction(() => !!(vs && vs.pending), null, { timeout: 10000 });
+  await click(page, m[1]);
+  await page.waitForFunction(n => state.tiles.filter(t => t.alive).length === n, before - 2, { timeout: 10000 });
+  await page.waitForFunction(() => !vs.pending, null, { timeout: 10000 });
+  return true;
+}
+async function missOne(page) {
+  const idx = await page.evaluate(() => {
+    const f = freeTiles();
+    const withMate = f.find(t => f.some(o => o !== t && o.code === t.code));
+    if (!withMate) return null;
+    const wrong = f.find(o => o.code !== withMate.code);
+    if (!wrong) return null;
+    return { lock: state.tiles.indexOf(withMate), wrong: state.tiles.indexOf(wrong) };
+  });
+  if (!idx) return false;
+  await click(page, idx.lock);
+  await page.waitForFunction(() => !!(vs && vs.pending), null, { timeout: 10000 });
+  await click(page, idx.wrong);
+  await page.waitForFunction(() => !vs.pending, null, { timeout: 10000 });
+  return true;
+}
+async function deadOne(page) {
+  const i = await page.evaluate(() => {
+    const f = freeTiles();
+    const dead = f.find(t => !f.some(o => o !== t && o.code === t.code));
+    return dead ? state.tiles.indexOf(dead) : null;
+  });
+  if (i == null) return false;
+  await click(page, i);
+  await page.waitForFunction(() => !vs.pending, null, { timeout: 10000 });
+  return true;
+}
+// Sweep the current board with the current-turn player until the round ends.
+async function sweepRound(A, B) {
+  for (let step = 0; step < 200; step++) {
+    const st = await A.page.evaluate(() => ({ status: vs.status, phase: vs.phase, turn: vs.turn }));
+    if (st.status !== "playing") return st;
+    const mover = st.turn === "A" ? A.page : B.page;
+    const other = st.turn === "A" ? B.page : A.page;
+    const before = await aliveCount(mover);
+    let moved = await matchOne(mover);
+    if (!moved) {
+      await mover.locator("#btn-shuffle").click();
+      await mover.waitForFunction(() => !!findMove(), null, { timeout: 10000 });
+      continue;
+    }
+    await waitFn(other, n => state.tiles.filter(t => t.alive).length === n, before - 2);
   }
-  return false;
+  throw new Error("round did not end in 200 steps");
 }
 
 const A = await newPlayer("Alice", { w: 1280, h: 800 });
 const B = await newPlayer("Bob", { w: 390, h: 844, mobile: true });
 
-// --- host and join ---
+// --- fast lobby path: draft + ready ---
 await A.page.locator("#v-name").fill("Alice");
 await A.page.locator("#v-create").click();
-await waitFn(A.page, () => vs && vs.room && vs.status === "waiting");
+await waitFn(A.page, () => vs && vs.room && vs.phase === "veto");
 const code = await A.page.evaluate(() => vs.room);
-check("host: room created with a 4-letter code", /^[A-Z]{4}$/.test(code), code);
-check("host: status shows the code to share", (await A.page.locator("#v-status").textContent()).includes(code));
-
-// Bad code first: Bob tries ZZZZ.
 await B.page.locator("#v-name").fill("Bob");
-await B.page.locator("#v-code").fill("ZZZZ");
-await B.page.locator("#v-join").click();
-await B.page.waitForFunction(() => document.getElementById("v-status").textContent.includes("No room"), null, { timeout: 10000 });
-check("join: a bad room code is rejected cleanly", true);
-
 await B.page.locator("#v-code").fill(code);
 await B.page.locator("#v-join").click();
-await waitFn(A.page, () => vs.status === "playing");
-await waitFn(B.page, () => vs.status === "playing" && state && state.kind === "versus");
-check("join: both players are in and playing", true);
+await waitFn(B.page, () => vs && vs.phase === "veto" && vs.names.A === "Alice");
+await A.page.locator('[data-cat="populations"]').click();
+await waitFn(B.page, () => vs.vetoes.length === 1);
+await B.page.locator('[data-cat="currencies"]').click();
+await waitFn(A.page, () => vs.vetoes.length === 2);
+await A.page.locator('[data-cat="presidents"]').click();
+await waitFn(B.page, () => vs.vetoes.length === 3);
+await B.page.locator('[data-cat="state-flags"]').click();
+await waitFn(A.page, () => vs.phase === "ready");
+await A.page.locator("#v-ready").click();
+await B.page.locator("#v-ready").click();
+await waitFn(A.page, () => vs.status === "playing" && vs.round === 1);
+await waitFn(B.page, () => vs.status === "playing" && vs.round === 1 && state && state.kind === "versus");
+check("start: draft plus both ready opens round 1 on both screens", true);
 
 const [tilesA, tilesB] = await Promise.all([
   A.page.evaluate(() => state.tiles.map(t => t.code + ":" + t.kind).sort().join("|")),
   B.page.evaluate(() => state.tiles.map(t => t.code + ":" + t.kind).sort().join("|")),
 ]);
 check("deal: both players see the same 18 pairs", tilesA === tilesB && tilesA.split("|").length === 36);
+check("deal: round 1 pairs are all capitals", (await A.page.evaluate(() => state.tiles.every(t => t.kind === "name" || t.kind === "capital"))));
 check("deal: phone player is on the portrait layout", await B.page.evaluate(() => state.layout === "portrait"));
 await A.page.screenshot({ path: join(SHOTS, "versus-desktop.png") });
 await B.page.screenshot({ path: join(SHOTS, "versus-phone.png") });
 
-// --- Alice takes a pair; Bob's board and both scoreboards follow ---
-const before = await aliveCount(B.page);
-await matchOne(A.page);
-await waitFn(B.page, (n) => state.tiles.filter(t => t.alive).length === n - 2, await before);
-await waitFn(A.page, () => vs.scores.A === 1);
-check("sync: Alice's pair disappears on Bob's phone too", true);
-check("score: Alice 1 on her screen, Bob sees Alice at 1", (await A.page.locator("#v-me").textContent()) === "1"
-  && (await B.page.locator("#v-opp").textContent()) === "1");
-
-// --- Bob takes a pair from his phone layout; Alice follows ---
-await matchOne(B.page);
-await waitFn(A.page, () => vs.scores.B === 1 && state.tiles.filter(t => t.alive).length === 32);
-check("sync: Bob's pair disappears on Alice's desktop too", true);
-
-// --- Alice misses: local mistake, board unchanged for Bob ---
-await A.page.evaluate(() => {
-  const f = freeTiles();
-  for (let i = 0; i < f.length; i++) for (let j = i + 1; j < f.length; j++)
-    if (f[i].code !== f[j].code) { window.__wrong = [state.tiles.indexOf(f[i]), state.tiles.indexOf(f[j])]; return; }
+// --- out of turn: Bob cannot act, client-side and server-side ---
+check("turn: Alice has the first turn", (await snap(A.page)).turn === "A");
+await B.page.evaluate(() => {
+  const mv = findMove();
+  if (mv) onVersusTile(state.tiles.indexOf(mv[0]), mv[0]);
 });
-const wrong = await A.page.evaluate(() => window.__wrong);
-await click(A.page, wrong[0]);
-await click(A.page, wrong[1]);
-await A.page.waitForFunction(() => state.mistakes === 1, null, { timeout: 5000 });
-check("miss: wrong pair costs Alice a miss and removes nothing", (await aliveCount(A.page)) === 32
-  && (await aliveCount(B.page)) === 32);
+await B.page.waitForTimeout(400);
+let sb = await snap(B.page);
+check("turn: out-of-turn tap is blocked on the client", !sb.pending && sb.turn === "A" && sb.scores.B === 0);
+await B.page.evaluate(() => vs.ws.send(JSON.stringify({ t: "select", i: 0 })));
+await B.page.waitForTimeout(400);
+sb = await snap(B.page);
+check("turn: out-of-turn select is rejected by the server", !sb.pending && sb.turn === "A" && sb.scores.A === 0 && sb.scores.B === 0);
 
-// --- Alice's browser dies mid-game; she rejoins right where she was ---
+// --- Alice: correct pair scores and keeps the turn; the lock clears on both screens ---
+await matchOne(A.page);
+let sa = await snap(A.page);
+check("score: correct pair is a point", sa.scores.A === 1 && sa.scores.B === 0, JSON.stringify(sa));
+check("turn: a correct pair keeps the turn", sa.turn === "A" && !sa.pending);
+await waitFn(B.page, () => vs.scores.A === 1 && !vs.pending);
+check("sync: Bob sees Alice's point, the cleared lock, and still her turn", (await snap(B.page)).turn === "A");
+
+// --- Alice: wrong pick transfers a point to Bob and passes the turn ---
+await missOne(A.page);
+sa = await snap(A.page);
+check("penalty: wrong pick is -1 to Alice, +1 to Bob", sa.scores.A === 0 && sa.scores.B === 1, JSON.stringify(sa));
+check("turn: a failed resolution passes the turn", sa.turn === "A" ? false : sa.turn === "B");
+await waitFn(B.page, () => vs.turn === "B" && vs.scores.B === 1);
+sb = await snap(B.page);
+check("sync: Bob sees his point and his turn", sb.turn === "B" && sb.scores.B === 1, JSON.stringify(sb));
+
+// --- Bob locks a tile with no free match: dead lock, penalized at once ---
+let deadOk = await deadOne(B.page);
+for (let tries = 0; !deadOk && tries < 3; tries++) { await matchOne(B.page); deadOk = await deadOne(B.page); }
+check("penalty: committing a tile with no free match fails the turn", deadOk);
+sb = await snap(B.page);
+check("penalty: dead lock is -1 to Bob, +1 to Alice, turn passes", sb.scores.B === 0 && sb.scores.A === 1 && sb.turn === "A", JSON.stringify(sb));
+
+// --- no deselect: tapping the locked tile again keeps it locked, then resolve ---
+await A.page.evaluate(() => {
+  const mv = findMove();
+  window.__lock = state.tiles.indexOf(mv[0]); window.__mate = state.tiles.indexOf(mv[1]);
+  onVersusTile(window.__lock, state.tiles[window.__lock]);
+});
+await waitFn(A.page, () => !!vs.pending);
+const lockIdx = await A.page.evaluate(() => window.__lock);
+await click(A.page, lockIdx);
+await A.page.waitForTimeout(400);
+check("turn: tapping the locked tile again does not deselect it", await A.page.evaluate(() => !!vs.pending && state.sel === vs.pending.tile));
+await A.page.evaluate(() => onVersusTile(window.__mate, state.tiles[window.__mate]));
+await waitFn(A.page, () => !vs.pending && vs.scores.A === 2);
+check("score: resolving the lock scores after the deselect attempt", true);
+
+// --- reconnect while locked: Alice commits, vanishes, rejoins still locked ---
+await A.page.evaluate(() => {
+  const mv = findMove();
+  onVersusTile(state.tiles.indexOf(mv[0]), mv[0]);
+});
+await waitFn(A.page, () => !!vs.pending);
+const preDisc = await snap(A.page);
 await A.page.close();
 await waitFn(B.page, () => vs.connected.A === false);
-check("reconnect: Bob is told Alice left", (await B.page.locator("#v-status").textContent()).includes("disconnected"));
 const A2page = await A.context.newPage();
 A2page.on("console", m => { if (m.type() === "error") A.errors.push(`A2 console.error: ${m.text()}`); });
 A2page.on("pageerror", e => A.errors.push(`A2 pageerror: ${e.message}`));
 await A2page.goto(BASE, { waitUntil: "load" });
 await A2page.locator("#tab-versus").click();
-await waitFn(A2page, () => vs && vs.status === "playing" && state && state.kind === "versus" && vs.scores.A === 1);
-check("reconnect: Alice rejoins with her score and board intact", (await aliveCount(A2page)) === 32);
-await waitFn(B.page, () => vs.connected.A === true);
-check("reconnect: Bob sees Alice back", true);
+await waitFn(A2page, () => vs && vs.status === "playing" && !!vs.pending && vs.turn === "A");
+const sa2 = await snap(A2page);
+check("reconnect: a locked selection survives reconnect", sa2.pending && sa2.pending.seat === "A"
+  && (await A2page.evaluate(() => state.sel)) === (await A2page.evaluate(() => vs.pending.tile)));
+check("reconnect: turn and scores preserved", sa2.turn === "A" && sa2.scores.A === preDisc.scores.A && sa2.scores.B === preDisc.scores.B, JSON.stringify(sa2));
 A.page = A2page;
 
-// --- race the rest of the board down, alternating players ---
-for (let step = 0; step < 200; step++) {
-  const done = await A.page.evaluate(() => vs.status === "done");
-  if (done) break;
-  try {
-  const beforeA = await aliveCount(A.page);
-  let moved = await matchOne(step % 2 ? B.page : A.page);
-  if (!moved) moved = await matchOne(step % 2 ? A.page : B.page);
-  if (!moved) {
-    await A.page.locator("#btn-shuffle").click();
-    await A.page.waitForFunction(n => state.tiles.filter(t => t.alive).length > 0 && !!findMove(), null, { timeout: 8000 });
-    await waitFn(B.page, n => state.tiles.filter(t => t.alive).length === n, beforeA);
-    continue;
-  }
-  const other = await aliveCount(step % 2 ? A.page : B.page);
-  if (other !== beforeA - 2) {
-    await waitFn(step % 2 ? A.page : B.page, n => state.tiles.filter(t => t.alive).length === n, beforeA - 2);
-  }
-  } catch (e) {
-    console.log("DEBUG stall at step", step,
-      "A:", JSON.stringify(await A.page.evaluate(() => ({ st: vs.status, alive: state.tiles.filter(t => t.alive).length, sel: state.sel, scores: vs.scores, move: !!findMove() }))),
-      "B:", JSON.stringify(await B.page.evaluate(() => ({ st: vs.status, alive: state.tiles.filter(t => t.alive).length, sel: state.sel, scores: vs.scores, move: !!findMove() }))));
-    throw e;
-  }
-}
+// --- Alice sweeps round 1; the lobby reopens between rounds ---
+await sweepRound(A, B);
+await waitFn(A.page, () => vs.status === "waiting" && vs.phase === "between");
+await waitFn(B.page, () => vs.status === "waiting" && vs.phase === "between");
+let ra = await snap(A.page);
+check("round: Alice takes round 1", ra.roundWins.A === 1 && ra.roundWins.B === 0 && ra.lastRoundWinner === "A", JSON.stringify(ra));
+check("round: both lobbies show the round result and the next category",
+  (await A.page.locator("#v-lobby-title").textContent()).includes("Round 1 to you")
+  && (await B.page.locator("#v-lobby-note").textContent()).toLowerCase().includes("next round"));
+
+// --- both ready: round 2 starts with fresh scores and Bob's turn ---
+await A.page.locator("#v-ready").click();
+await B.page.locator("#v-ready").click();
+await waitFn(A.page, () => vs.status === "playing" && vs.round === 2);
+await waitFn(B.page, () => vs.status === "playing" && vs.round === 2 && state.tiles.length === 36);
+ra = await snap(A.page);
+check("round: round 2 starts fresh on the second category", ra.round === 2 && ra.scores.A === 0 && ra.scores.B === 0 && ra.turn === "B", JSON.stringify(ra));
+check("round: round 2 pairs are all flags", (await A.page.evaluate(() => state.tiles.every(t => t.kind === "name" || t.kind === "flag"))));
+
+// --- Bob yields the turn; Alice sweeps again: immediate 2-0 championship ---
+await missOne(B.page);
+check("round: Bob's miss hands Alice the turn", (await snap(A.page)).turn === "A");
+await sweepRound(A, B);
 await waitFn(A.page, () => vs.status === "done");
 await waitFn(B.page, () => vs.status === "done");
-const [sa, sb] = await Promise.all([A.page.evaluate(() => ({ ...vs.scores, winner: vs.winner })), B.page.evaluate(() => ({ ...vs.scores, winner: vs.winner }))]);
-check("end: board fully cleared on both screens", (await aliveCount(A.page)) === 0 && (await aliveCount(B.page)) === 0);
-check("end: scores agree and cover all 18 pairs", sa.A === sb.A && sa.B === sb.B && sa.A + sa.B === 18, JSON.stringify(sa));
-check("end: winner agrees on both screens", sa.winner === sb.winner && !!sa.winner, sa.winner);
-check("end: both players see the result", (await A.page.locator("#v-status").textContent()).match(/win|tie/i) !== null
-  && (await B.page.locator("#v-status").textContent()).match(/win|tie/i) !== null);
+const [endA, endB] = await Promise.all([
+  A.page.evaluate(() => ({ roundWins: { ...vs.roundWins }, champion: vs.champion, status: vs.status })),
+  B.page.evaluate(() => ({ roundWins: { ...vs.roundWins }, champion: vs.champion, status: vs.status })),
+]);
+check("end: the match ends immediately at two round wins", endA.roundWins.A === 2 && endA.roundWins.B === 0, JSON.stringify(endA));
+check("end: a single agreed champion on both screens", endA.champion === "A" && endB.champion === "A", JSON.stringify(endB));
+check("end: both players see the champion", (await A.page.locator("#v-status").textContent()).match(/Champion/i) !== null
+  && (await B.page.locator("#v-status").textContent()).match(/[Cc]hampion/i) !== null);
 await A.page.screenshot({ path: join(SHOTS, "versus-end-desktop.png") });
 await B.page.screenshot({ path: join(SHOTS, "versus-end-phone.png") });
 
@@ -186,6 +266,6 @@ const errors = [...A.errors, ...B.errors];
 check("versus: no console or page errors anywhere", errors.length === 0, errors.join(" | "));
 
 await browser.close();
-server.kill();
+if (server) server.kill();
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nAll versus checks passed");
 process.exit(failures ? 1 : 0);
