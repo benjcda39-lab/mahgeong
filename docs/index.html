@@ -389,7 +389,7 @@
   .learned.stuck .stamp { color: var(--gold); border-color: var(--gold); }
   .learned .stuck-actions { display: none; gap: 8px; }
   .learned.stuck .stuck-actions { display: flex; }
-  @media (max-width: 560px) { .learned { grid-template-columns: 1fr; } }
+  @media (max-width: 560px) { .learned { grid-template-columns: 1fr; } .learned .stamp { justify-self: start; } }
 
   /* ---- result marks (the shareable grid) ---- */
   .marks { display: grid; grid-template-columns: repeat(6, 24px); gap: 4px; }
@@ -512,6 +512,11 @@
 
   @media (prefers-reduced-motion: reduce) {
     .tile, .tile.hint, .tile.wrong, .tile.nudge { animation: none; transition: none; }
+  }
+  /* Phones: give the board every pixel of width; portrait layouts scroll vertically instead of shrinking. */
+  @media (max-width: 600px) {
+    .wrap { padding-inline: 8px; gap: 10px; }
+    .table { padding: 6px; border-radius: 10px; }
   }
 </style>
 
@@ -1132,7 +1137,30 @@ const LAYOUTS = {
   24: build([[8, 4, 0, 0, 0], [6, 2, 2, 2, 1], [2, 2, 6, 2, 2]]),
   30: build([[10, 4, 2, 0, 0], [6, 2, 6, 2, 1], [3, 2, 9, 2, 2]], [[0, 3, 0], [22, 3, 0]]),
 };
+// Narrow layouts for phones: four tiles wide, taller instead of wider, so tiles stay big on a portrait screen.
+const PORTRAIT = {
+  12: build([[4, 5, 0, 0, 0], [2, 2, 2, 3, 1]]),
+  18: build([[4, 6, 0, 0, 0], [3, 3, 1, 3, 1], [1, 3, 3, 3, 2]]),
+  24: build([[4, 8, 0, 0, 0], [3, 4, 1, 4, 1], [2, 2, 2, 6, 2]]),
+  30: build([[4, 9, 0, 0, 0], [3, 6, 1, 3, 1], [2, 3, 2, 6, 2]]),
+};
 const TW = 104, TH = 132, HW = TW / 2, HH = TH / 2, LX = -6, LY = -8, PAD = 20;
+function wantPortrait() { return window.innerWidth < 600; }
+// Move an already-dealt set of tiles onto another layout, keeping every pairing. Uses the current rng, so a
+// seeded caller gets the same arrangement every time. The wide deal happens first so the daily seed is untouched.
+function relayout(tiles, positions, deal = "fair") {
+  const order = dealOrder(positions, deal);
+  if (!order) return false;
+  const byCode = {};
+  tiles.forEach(t => (byCode[t.code] = byCode[t.code] || []).push(t));
+  const groups = shuffle(Object.values(byCode));
+  order.forEach(([p, q], i) => {
+    let [u, v] = groups[i];
+    if (rng() < .5) [u, v] = [v, u];
+    Object.assign(u, p); Object.assign(v, q);
+  });
+  return true;
+}
 
 const overlaps = (a, b) => a.x < b.x + 2 && b.x < a.x + 2 && a.y < b.y + 2 && b.y < a.y + 2;
 function isFree(t, alive) {
@@ -1219,18 +1247,20 @@ const $ = id => document.getElementById(id);
 const board = $("board"), viewport = $("viewport");
 
 function baseState(extra) {
-  return { deck: "world", region: "all", mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
+  return { deck: "world", region: "all", layout: "wide", mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
 }
 function snapshotOf(s) {
-  const { kind, n, deck, region, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag } = s;
-  return { kind, n, deck, region, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
+  const { kind, n, deck, region, layout, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag } = s;
+  return { kind, n, deck, region, layout, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
 }
 function saveDaily() { if (state && state.kind === "daily") LS.set(KEY.daily + state.n, snapshotOf(state)); }
 
 function newPractice(deck, region, mode, size, deal) {
   const d = DECKS[deck];
   const tiles = makeTiles(mode, size, deal, d.pool(region), d.kinds);
-  state = baseState({ kind: "practice", deck, region, mode, size, deal, tiles });
+  let layout = "wide";
+  if (wantPortrait() && relayout(tiles, PORTRAIT[size], deal)) layout = "portrait";
+  state = baseState({ kind: "practice", deck, region, layout, mode, size, deal, tiles });
   stopTimer();
   mount();
   $("placard").hidden = true;
@@ -1248,9 +1278,14 @@ function loadDaily() {
     state = { ...baseState(), ...saved, kind: "daily", n, running: false, sel: -1 };
   } else {
     rng = mulberry32(n * 1000003 + 7);
-    let tiles;
+    let tiles, layout = "wide";
     try { tiles = makeTiles(spec.mode, spec.size, "fair"); } finally { rng = Math.random; }
-    state = baseState({ kind: "daily", n, mode: spec.mode, size: spec.size, deal: "fair", tiles });
+    // Phones get the same countries and pairs, arranged on the portrait layout from a second seed.
+    if (wantPortrait()) {
+      rng = mulberry32(n * 7919 + 3);
+      try { if (relayout(tiles, PORTRAIT[spec.size])) layout = "portrait"; } finally { rng = Math.random; }
+    }
+    state = baseState({ kind: "daily", n, layout, mode: spec.mode, size: spec.size, deal: "fair", tiles });
   }
   stopTimer();
   $("d-no").textContent = "No. " + n;
@@ -1323,7 +1358,7 @@ function fit() {
   if (!state) return;
   const avail = viewport.clientWidth;
   const maxH = Math.max(320, window.innerHeight - 250);
-  const s = Math.min(1, avail / state.w, maxH / state.h);
+  const s = Math.min(1, avail / state.w, state.layout === "portrait" ? 1 : maxH / state.h);
   board.style.transform = `scale(${s})`;
   viewport.style.height = Math.round(state.h * s) + "px";
   board.style.left = Math.max(0, (avail - state.w * s) / 2) + "px";
