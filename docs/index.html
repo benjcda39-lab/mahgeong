@@ -236,11 +236,13 @@
     border-radius: 9px;
     background: linear-gradient(165deg, var(--tile) 0%, var(--tile-2) 100%);
     box-shadow:
-      inset 0 0 0 1px rgba(255,255,255,.7),
-      inset 0 -2px 0 rgba(120,100,60,.15),
-      5px 6px 0 var(--tile-edge),
-      6px 7px 0 var(--tile-edge-2),
-      9px 12px 14px var(--shadow);
+      inset 0 0 0 1px rgba(120,100,60,.3),
+      inset 0 2px 0 rgba(255,255,255,.55),
+      inset 0 -3px 0 rgba(120,100,60,.22),
+      inset 0 0 0 1px rgba(255,255,255,.35),
+      7px 8px 0 var(--tile-edge),
+      8px 10px 0 var(--tile-edge-2),
+      12px 16px 18px var(--shadow);
     color: var(--tile-ink);
     cursor: pointer;
     display: flex;
@@ -251,6 +253,39 @@
     text-align: center;
     transition: transform .12s ease, filter .2s ease, opacity .25s ease;
     -webkit-tap-highlight-color: transparent;
+  }
+  /* Joins the exposed side and bottom edges at the rounded corner so a tile reads as one solid block. */
+  .tile::after {
+    content: "";
+    position: absolute;
+    right: -8px;
+    bottom: -10px;
+    width: 9px;
+    height: 11px;
+    background: linear-gradient(160deg, var(--tile-edge) 25%, var(--tile-edge-2));
+    border-radius: 0 0 7px 0;
+    z-index: -1;
+  }
+  /* Higher layers cast a slightly broader contact shadow, so stacked levels are easier to tell apart. */
+  .tile[data-z="1"] {
+    box-shadow:
+      inset 0 0 0 1px rgba(120,100,60,.3),
+      inset 0 2px 0 rgba(255,255,255,.55),
+      inset 0 -3px 0 rgba(120,100,60,.22),
+      inset 0 0 0 1px rgba(255,255,255,.35),
+      7px 8px 0 var(--tile-edge),
+      8px 10px 0 var(--tile-edge-2),
+      16px 24px 26px var(--shadow);
+  }
+  .tile[data-z="2"] {
+    box-shadow:
+      inset 0 0 0 1px rgba(120,100,60,.3),
+      inset 0 2px 0 rgba(255,255,255,.55),
+      inset 0 -3px 0 rgba(120,100,60,.22),
+      inset 0 0 0 1px rgba(255,255,255,.35),
+      7px 8px 0 var(--tile-edge),
+      8px 10px 0 var(--tile-edge-2),
+      20px 32px 34px var(--shadow);
   }
   .tile .kind {
     position: absolute;
@@ -317,9 +352,9 @@
     box-shadow:
       0 0 0 3px var(--red),
       inset 0 0 0 1px rgba(255,255,255,.7),
-      5px 6px 0 var(--tile-edge),
-      6px 7px 0 var(--tile-edge-2),
-      12px 16px 18px var(--shadow);
+      7px 8px 0 var(--tile-edge),
+      8px 10px 0 var(--tile-edge-2),
+      14px 18px 20px var(--shadow);
   }
   /* Hint, wrong and nudge all have a static look first, so they read even with animations off. */
   .tile.hint {
@@ -327,16 +362,16 @@
     box-shadow:
       0 0 0 4px var(--gold),
       inset 0 0 0 1px rgba(255,255,255,.7),
-      5px 6px 0 var(--tile-edge),
-      6px 7px 0 var(--tile-edge-2),
-      12px 16px 18px var(--shadow);
+      7px 8px 0 var(--tile-edge),
+      8px 10px 0 var(--tile-edge-2),
+      14px 18px 20px var(--shadow);
     animation: pulse .7s ease-in-out 4;
   }
-  .tile.wrong { animation: shake .35s ease; box-shadow: 0 0 0 3px var(--red), 5px 6px 0 var(--tile-edge), 6px 7px 0 var(--tile-edge-2); }
+  .tile.wrong { animation: shake .35s ease; box-shadow: 0 0 0 3px var(--red), 7px 8px 0 var(--tile-edge), 8px 10px 0 var(--tile-edge-2); }
   .tile.nudge { animation: nudge .3s ease; filter: brightness(.7) saturate(.85); }
   .tile.gone { transform: scale(.4) rotate(-6deg); opacity: 0; pointer-events: none; }
 
-  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 4px var(--gold), 5px 6px 0 var(--tile-edge), 6px 7px 0 var(--tile-edge-2), 12px 16px 18px var(--shadow); } 50% { box-shadow: 0 0 0 9px var(--gold), 5px 6px 0 var(--tile-edge), 6px 7px 0 var(--tile-edge-2), 12px 16px 18px var(--shadow); } }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 4px var(--gold), 7px 8px 0 var(--tile-edge), 8px 10px 0 var(--tile-edge-2), 14px 18px 20px var(--shadow); } 50% { box-shadow: 0 0 0 9px var(--gold), 7px 8px 0 var(--tile-edge), 8px 10px 0 var(--tile-edge-2), 14px 18px 20px var(--shadow); } }
   @keyframes shake { 0%,100% { translate: 0 0; } 20% { translate: -6px 0; } 40% { translate: 6px 0; } 60% { translate: -4px 0; } 80% { translate: 4px 0; } }
   @keyframes nudge { 0%,100% { translate: 0 0; } 50% { translate: 0 3px; } }
 
@@ -513,6 +548,25 @@
   @media (prefers-reduced-motion: reduce) {
     .tile, .tile.hint, .tile.wrong, .tile.nudge { animation: none; transition: none; }
   }
+  /* Two-player panel */
+  .versus-box { display: grid; gap: 12px; justify-items: start; }
+  .versus-box .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .versus-box input[type="text"] {
+    font: inherit;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    width: 11ch;
+  }
+  #v-code { text-transform: uppercase; width: 8ch; letter-spacing: 2px; font-weight: 700; }
+  .v-status { margin: 0; color: var(--ink-2); }
+  .v-status b { letter-spacing: 3px; font-size: 1.25em; color: var(--ink); }
+  .v-score { display: flex; gap: 14px; align-items: baseline; font-size: 1.05rem; }
+  .v-score b { font-size: 1.5rem; }
+  .v-score .dim { color: var(--ink-2); font-size: .9rem; }
+
   /* Phones: give the board every pixel of width; portrait layouts scroll vertically instead of shrinking. */
   @media (max-width: 600px) {
     .wrap { padding-inline: 8px; gap: 10px; }
@@ -530,6 +584,7 @@
       <div class="tabs" role="tablist">
         <button id="tab-daily" type="button" role="tab" aria-selected="true">Daily</button>
         <button id="tab-practice" type="button" role="tab" aria-selected="false">Practice</button>
+        <button id="tab-versus" type="button" role="tab" aria-selected="false">2 Player</button>
       </div>
       <button id="btn-stats" class="icon" type="button" title="Your statistics" aria-label="Your statistics">
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="10" width="4" height="8" rx="1"/><rect x="8" y="4" width="4" height="14" rx="1"/><rect x="14" y="7" width="4" height="11" rx="1"/></svg>
@@ -591,6 +646,25 @@
     </div>
     <div class="actions">
       <button id="btn-new" class="primary" type="button">New game</button>
+    </div>
+  </section>
+
+  <section class="strip" id="panel-versus" hidden>
+    <div class="versus-box">
+      <p class="how" style="margin:0">Two players share one board over the same Wi-Fi: every pair you clear is one your rival can't. No internet needed - one device runs <code>node lan/server.mjs</code> and both open the address it prints.</p>
+      <div class="row" id="v-setup">
+        <input type="text" id="v-name" maxlength="24" placeholder="Your name" aria-label="Your name">
+        <button id="v-create" class="primary" type="button">Host a game</button>
+        <span class="dim">or</span>
+        <input type="text" id="v-code" maxlength="4" placeholder="CODE" aria-label="Room code">
+        <button id="v-join" type="button">Join</button>
+      </div>
+      <p class="v-status" id="v-status">Not connected.</p>
+      <div class="v-score" id="v-score" hidden>
+        <span><b id="v-me">0</b> <span class="dim">you</span></span>
+        <span><b id="v-opp">0</b> <span class="dim" id="v-oppname">rival</span></span>
+        <span class="dim" id="v-left"></span>
+      </div>
     </div>
   </section>
 
@@ -1330,7 +1404,8 @@ function mount() {
     el.className = "tile k-" + t.kind;
     el.style.left = (lift + t.x * HW + t.z * LX) + "px";
     el.style.top = (liftY + t.y * HH + t.z * LY) + "px";
-    el.style.zIndex = t.z * 10 + 1;
+    el.style.zIndex = (t.z + 1) * 1000 + t.y * 32 + t.x;
+    el.dataset.z = t.z;
     el.setAttribute("role", "button");
     el.tabIndex = 0;
     const c = BY_CODE[t.code];
@@ -1400,7 +1475,7 @@ function setFact(stamp, html, stuck = false) {
 }
 
 function startTimer() {
-  if (state.running || state.done) return;
+  if (state.running || state.done || state.kind === "versus") return;
   state.running = true;
   timer = setInterval(() => {
     state.elapsed++;
@@ -1412,7 +1487,7 @@ function stopTimer() { clearInterval(timer); timer = null; if (state) state.runn
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && state && state.running) {
     stopTimer(); saveDaily();
-    if (!state.done) setFact("Paused", "The clock stopped while you were away. Tap a tile to keep going.");
+    if (!state.done && state.kind !== "versus") setFact("Paused", "The clock stopped while you were away. Tap a tile to keep going.");
   }
 });
 window.addEventListener("pagehide", saveDaily);
@@ -1423,6 +1498,7 @@ function onTile(i) {
   const t = state.tiles[i];
   if (!t.alive || state.done) return;
   if (!t.el.classList.contains("free")) { flash(t.el, "nudge", 300); return; }
+  if (state.kind === "versus") return onVersusTile(i, t);
   startTimer();
   if (state.sel === i) { state.sel = -1; refresh(); return; }
   if (state.sel < 0) { state.sel = i; refresh(); return; }
@@ -1486,6 +1562,7 @@ function hint() {
 
 function reshuffle() {
   if (state.done) return;
+  if (state.kind === "versus") { vsSend({ t: "shuffle" }); return; }
   const alive = aliveTiles();
   if (!alive.length) return;
   const positions = alive.map(t => ({ x: t.x, y: t.y, z: t.z }));
@@ -1683,17 +1760,226 @@ function closeOverlay() { $("overlay").hidden = true; clearInterval(cdTimer); }
 $("overlay").addEventListener("click", e => { if (e.target === $("overlay")) closeOverlay(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("overlay").hidden) closeOverlay(); });
 
+
+// ---------- two-player over the LAN ----------
+// The server (lan/server.mjs) is authoritative: it deals the board, validates pairs and
+// keeps score. This client renders what it broadcasts and reconnects automatically.
+const VKEY = "mahgeong-versus";
+let vs = null;        // { ws, room, seat, token, name, status, names, connected, scores, winner, retry }
+let vsState = null;   // the shared board, kept when the tab is hidden so switching tabs loses nothing
+
+function versusSaved() { return LS.get(VKEY) || {}; }
+function versusStore(patch) { LS.set(VKEY, { ...versusSaved(), ...patch }); }
+
+function vsStatus(html) { $("v-status").innerHTML = html; }
+
+function versusShow() {
+  $("placard").hidden = true;
+  const saved = versusSaved();
+  if (saved.name) $("v-name").value = saved.name;
+  if (vsState) {
+    state = vsState;
+    mount();
+    versusScore();
+    vsStatus(vsStatusText());
+    return;
+  }
+  $("v-score").hidden = true;
+  vsConnect();
+}
+
+function vsStatusText() {
+  if (!vs) return "Not connected.";
+  if (vs.status === "waiting") return `Room code <b>${vs.room}</b> - share it with player two. Waiting for them to join.`;
+  if (vs.status === "playing") {
+    const other = vs.seat === "A" ? "B" : "A";
+    const away = vs.connected && !vs.connected[other];
+    return `Playing against <b style="letter-spacing:0;font-size:1em">${esc(vs.names[other] || "your rival")}</b>${away ? " (disconnected - waiting for them)" : ""} in room <b>${vs.room}</b>.`;
+  }
+  if (vs.status === "done") return versusEndText();
+  return "Connected. Host a game or join one with a code.";
+}
+
+function versusEndText() {
+  const mine = vs.scores[vs.seat], theirs = vs.scores[vs.seat === "A" ? "B" : "A"];
+  if (vs.winner === "tie") return `Board cleared - a ${mine}-${theirs} tie. Well matched.`;
+  const won = vs.winner === vs.seat;
+  return `Board cleared - ${won ? "you win" : esc(vs.names[vs.winner] || "your rival") + " wins"} ${Math.max(mine, theirs)}-${Math.min(mine, theirs)}.`;
+}
+
+function versusScore() {
+  if (!vs || !vs.scores) return;
+  const other = vs.seat === "A" ? "B" : "A";
+  $("v-score").hidden = false;
+  $("v-me").textContent = vs.scores[vs.seat];
+  $("v-opp").textContent = vs.scores[other];
+  $("v-oppname").textContent = vs.names[other] || "rival";
+  $("v-left").textContent = state ? aliveTiles().length / 2 + " pairs left" : "";
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function vsConnect(rejoin) {
+  if (vs && vs.ws && vs.ws.readyState <= 1) { if (rejoin) vsHello(); return; }
+  if (!/^https?:$/.test(location.protocol)) {
+    vsStatus("Two-player needs the LAN host. On one device run <code>node lan/server.mjs</code>, then both players open the address it prints.");
+    return;
+  }
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  let ws;
+  try { ws = new WebSocket(`${proto}://${location.host}/ws`); } catch { vsStatus("Couldn't open a socket to this host."); return; }
+  vs = vs || {};
+  vs.ws = ws;
+  ws.onopen = () => {
+    vs.attempts = 0;
+    if (vs.pendingHello) { const h = vs.pendingHello; vs.pendingHello = null; ws.send(JSON.stringify(h)); return; }
+    const saved = versusSaved();
+    if (saved.room && saved.token) ws.send(JSON.stringify({ t: "hello", room: saved.room, token: saved.token, name: saved.name }));
+    else vsStatus("Connected. Host a game or join one with a code.");
+  };
+  ws.onmessage = e => vsMessage(JSON.parse(e.data));
+  ws.onclose = () => {
+    if (!vs) return;
+    vs.ws = null;
+    vs.attempts = (vs.attempts || 0) + 1;
+    if (!versusSaved().room && vs.attempts > 6) {
+      if (tab === "versus") vsStatus("No game server answered here. On the host device run <code>node lan/server.mjs</code>, then open the address it prints on both devices.");
+      return;
+    }
+    if (tab === "versus") vsStatus("Connection lost - retrying...");
+    clearTimeout(vs.retry);
+    vs.retry = setTimeout(() => vsConnect(), 2000);
+  };
+  ws.onerror = () => {
+    if (!versusSaved().room) vsStatus("No game server answered here. On the host device run <code>node lan/server.mjs</code>, then open the address it prints on both devices.");
+  };
+}
+
+function vsStartHello(room) {
+  const name = ($("v-name").value || "").trim() || (room ? "Guest" : "Host");
+  versusStore({ name });
+  const saved = versusSaved();
+  const h = { t: "hello", name };
+  if (room) { h.room = room; if (saved.room === room && saved.token) h.token = saved.token; }
+  if (vs && vs.ws && vs.ws.readyState === 1) vs.ws.send(JSON.stringify(h));
+  else { vs = vs || {}; vs.pendingHello = h; vsConnect(); }
+}
+
+function vsSend(obj) {
+  if (vs && vs.ws && vs.ws.readyState === 1) vs.ws.send(JSON.stringify(obj));
+  else if (tab === "versus") vsStatus("Not connected - waiting for the host.");
+}
+
+function applyVersusState(msg) {
+  const tiles = msg.tiles.map(t => ({ ...t }));
+  if (!vsState) {
+    vsState = baseState({ kind: "versus", deck: "world", region: "all", layout: "wide", mode: "mix", size: tiles.length / 2, deal: "fair", tiles });
+  } else {
+    vsState.tiles = tiles;
+    vsState.sel = -1;
+    vsState.done = msg.status === "done";
+  }
+  // Phones stack the same pairing on the portrait layout, exactly like the daily board.
+  vsState.layout = "wide";
+  if (wantPortrait()) {
+    rng = mulberry32(97);
+    try { if (relayout(vsState.tiles, PORTRAIT[vsState.size])) vsState.layout = "portrait"; } finally { rng = Math.random; }
+  }
+  vs.status = msg.status;
+  vs.scores = msg.scores;
+  vs.names = msg.names;
+  vs.connected = msg.connected;
+  vs.winner = msg.winner;
+  if (tab === "versus") {
+    state = vsState;
+    mount();
+    versusScore();
+    vsStatus(vsStatusText());
+    if (msg.status === "done") { state.done = true; refresh(); setFact("Game over", versusEndText()); }
+  }
+}
+
+function vsMessage(msg) {
+  if (msg.t === "joined") {
+    vs.seat = msg.seat; vs.room = msg.room; vs.token = msg.token;
+    versusStore({ room: msg.room, token: msg.token, seat: msg.seat });
+    return;
+  }
+  if (msg.t === "state") return applyVersusState(msg);
+  if (msg.t === "match") {
+    if (vsState) {
+      [msg.a, msg.b].forEach(i => {
+        const t = vsState.tiles[i];
+        if (t) { t.alive = false; if (t.el) { t.el.classList.add("gone"); t.el.classList.remove("selected"); } }
+      });
+      vsState.sel = -1;
+    }
+    vs.scores = msg.scores;
+    if (tab === "versus" && state === vsState) {
+      refresh();
+      versusScore();
+      const me = msg.by === vs.seat;
+      setFact(me ? "Matched" : "Rival matched", me ? "That pair is yours." : `<b>${esc(vs.names[msg.by] || "Your rival")}</b> took a pair. ${msg.left} ${msg.left === 1 ? "pair" : "pairs"} left.`);
+      if (msg.left > 0 && !hasMove()) setFact("Stuck", stuckText(), true);
+    }
+    return;
+  }
+  if (msg.t === "reject") { if (vsState) { vsState.sel = -1; if (tab === "versus" && state === vsState) refresh(); } return; }
+  if (msg.t === "miss") {
+    if (msg.seat !== vs.seat && tab === "versus") toast(`${vs.names[msg.seat] || "Your rival"} missed a pair.`);
+    return;
+  }
+  if (msg.t === "peer") {
+    if (vs.names) { vs.names[msg.seat] = msg.name || vs.names[msg.seat]; vs.connected[msg.seat] = msg.connected; }
+    if (tab === "versus") { vsStatus(vsStatusText()); toast(msg.connected ? `${msg.name} is in. Game on.` : `${msg.name || "Your rival"} disconnected.`); }
+    return;
+  }
+  if (msg.t === "stuck") { if (tab === "versus") setFact("Stuck", "No free pair matches. Shuffle the remaining tiles to keep going.", true); return; }
+  if (msg.t === "error") { if (tab === "versus") vsStatus(esc(msg.msg)); toast(msg.msg); return; }
+}
+
+function onVersusTile(i, t) {
+  if (state.sel === i) { state.sel = -1; refresh(); return; }
+  if (state.sel < 0) { state.sel = i; refresh(); return; }
+  const s = state.tiles[state.sel];
+  state.sel = -1;
+  refresh();
+  if (s.code === t.code) vsSend({ t: "match", a: state.tiles.indexOf(s), b: i });
+  else {
+    state.mistakes++;
+    flash(s.el, "wrong", 350); flash(t.el, "wrong", 350);
+    refresh();
+    vsSend({ t: "miss" });
+  }
+}
+
+$("v-create").addEventListener("click", () => {
+  versusStore({ room: null, token: null });
+  vsState = null; state = null;
+  vsStartHello();
+});
+$("v-join").addEventListener("click", () => {
+  const code = $("v-code").value.trim().toUpperCase();
+  if (!/^[A-Z]{4}$/.test(code)) { vsStatus("Room codes are four letters."); return; }
+  vsState = null; state = null;
+  vsStartHello(code);
+});
+
 // ---------- tabs and wiring ----------
 function setTab(t) {
   if (state && state.kind === "daily") saveDaily();
   tab = t;
   $("tab-daily").setAttribute("aria-selected", t === "daily");
   $("tab-practice").setAttribute("aria-selected", t === "practice");
+  $("tab-versus").setAttribute("aria-selected", t === "versus");
   $("panel-daily").hidden = t !== "daily";
   $("panel-practice").hidden = t !== "practice";
+  $("panel-versus").hidden = t !== "versus";
   stopTimer();
   closeOverlay();
-  if (t === "daily") loadDaily(); else fresh();
+  if (t === "daily") loadDaily();
+  else if (t === "practice") fresh();
+  else versusShow();
 }
 const radioVal = name => { const el = document.querySelector(`input[name="${name}"]:checked`); return el ? el.value : null; };
 const setRadio = (name, v) => { const el = document.querySelector(`input[name="${name}"][value="${v}"]`); if (el) el.checked = true; };
@@ -1734,6 +2020,7 @@ const toPractice = () => setTab("practice");
 
 $("tab-daily").addEventListener("click", () => setTab("daily"));
 $("tab-practice").addEventListener("click", toPractice);
+$("tab-versus").addEventListener("click", () => setTab("versus"));
 $("btn-new").addEventListener("click", fresh);
 $("btn-again").addEventListener("click", fresh);
 $("btn-end-practice").addEventListener("click", toPractice);
