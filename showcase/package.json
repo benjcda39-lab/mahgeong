@@ -10,7 +10,7 @@
     "studio": "remotion studio remotion/index.ts",
     "render:landscape": "remotion render remotion/index.ts Landscape out/mahgeong-promo-16x9.mp4 --browser-executable \"C:/Program Files/Google/Chrome/Application/chrome.exe\"",
     "render:portrait": "remotion render remotion/index.ts Portrait out/mahgeong-promo-9x16.mp4 --browser-executable \"C:/Program Files/Google/Chrome/Application/chrome.exe\"",
-    "test": "node --test tests/",
+    "test": "node --test \"tests/**/*.test.mjs\"",
     "e2e": "node e2e/playthrough.mjs",
     "e2e:versus": "node e2e/versus.mjs",
     "lan": "node ../lan/server.mjs"
@@ -27,7 +27,7 @@
     "@types/react": "18.3.12",
     "ffmpeg-static": "5.2.0",
     "jsdom": "^30.1.0",
-    "playwright": "1.49.1",
+    "playwright": "1.55.1",
     "typescript": "^5.6.0"
   }
 }
