@@ -39,20 +39,7 @@ function loadRules() {
 }
 const rules = loadRules();
 
-const BOARD_SIZE = 18, BOARD_DEAL = "fair";
-
-// The best-of-three death match: seven categories enter the lobby draft, players alternate
-// vetoes (two each), and the three survivors become rounds 1-3. First to two rounds wins.
-const CATEGORIES = [
-  { id: "capitals", label: "Capitals", deck: "world", kind: "capital" },
-  { id: "flags", label: "Flags", deck: "world", kind: "flag" },
-  { id: "currencies", label: "Currencies", deck: "world", kind: "currency" },
-  { id: "populations", label: "Populations", deck: "world", kind: "population" },
-  { id: "presidents", label: "US presidents", deck: "presidents", kind: "years" },
-  { id: "state-flags", label: "US state flags", deck: "states", kind: "flag" },
-  { id: "state-capitals", label: "US state capitals", deck: "states", kind: "capital" },
-];
-const catOf = id => CATEGORIES.find(c => c.id === id);
+const BOARD_MODE = "mix", BOARD_SIZE = 18, BOARD_DEAL = "fair";
 
 // ---------- tiny WebSocket layer (RFC 6455, text frames) ----------
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -139,15 +126,6 @@ function publicState(room, seat) {
     ready: room.ready,
     turn: room.turn,
     pending: room.pending,
-    phase: room.phase,
-    categories: room.categories,
-    vetoes: room.vetoes,
-    vetoTurn: room.vetoTurn,
-    rounds: room.rounds,
-    round: room.round,
-    roundWins: room.roundWins,
-    lastRoundWinner: room.lastRoundWinner,
-    champion: room.champion,
     tb: !!room.tb,
     deck: room.deck,
     sdwin: !!room.sdWin,
@@ -165,50 +143,7 @@ function broadcastState(room) {
 function aliveTiles(room) { return room.tiles.filter(t => t.alive); }
 function passTurn(room) { room.turn = room.turn === "A" ? "B" : "A"; }
 
-// Deal a fresh 18-pair board from the round's category and open play.
-function startRound(room, n) {
-  const cat = catOf(room.rounds[n - 1]);
-  const d = rules.DECKS[cat.deck];
-  rules.seed(Math.random);
-  room.tiles = rules.makeTiles(cat.kind, BOARD_SIZE, BOARD_DEAL, d.pool("all"), d.kinds)
-    .map(({ x, y, z, code: c, kind }) => ({ x, y, z, code: c, kind, alive: true }));
-  room.deck = cat.deck;
-  room.round = n;
-  room.scores = { A: 0, B: 0 };
-  room.misses = { A: 0, B: 0 };
-  room.turn = n % 2 === 1 ? "A" : "B";
-  room.pending = null;
-  room.tb = null;
-  room.sdWin = false;
-  room.status = "playing";
-  room.phase = "round";
-  room.touched = Date.now();
-  broadcastState(room);
-}
-
-// A round always produces a round winner; two round wins crown the champion. Otherwise the
-// lobby reopens for the next round.
-function endRound(room, winner, sd) {
-  room.roundWins[winner]++;
-  room.lastRoundWinner = winner;
-  room.winner = winner;
-  room.sdWin = sd;
-  if (room.roundWins[winner] >= 2) {
-    room.status = "done";
-    room.phase = "done";
-    room.champion = winner;
-    broadcastState(room);
-    return;
-  }
-  room.status = "waiting";
-  room.phase = "between";
-  room.ready = { A: false, B: false };
-  room.pending = null;
-  room.tb = null;
-  broadcastState(room);
-}
-
-// Regulation ends in a win, or in sudden death when the board clears level.
+// The board always produces a winner: a level board goes to sudden death.
 function finishBoard(room) {
   if (room.scores.A === room.scores.B) {
     room.tb = { last: { A: null, B: null } };
@@ -216,17 +151,19 @@ function finishBoard(room) {
     broadcastState(room);
     return;
   }
-  endRound(room, room.scores.A > room.scores.B ? "A" : "B", false);
+  room.status = "done";
+  room.winner = room.scores.A > room.scores.B ? "A" : "B";
+  broadcastState(room);
 }
 
 // Sudden death: one fresh four-tile board per attempt - a country/state/president tile
 // plus three same-kind candidates, exactly one of which pairs with it. Content comes
 // from the game's other decks and modes, never from the cleared board.
 function sdRound(room) {
-  const cat = catOf(room.rounds[room.round - 1]);
-  const d = rules.DECKS[cat.deck];
+  const dkey = ["world", "states", "presidents"][Math.floor(Math.random() * 3)];
+  const d = rules.DECKS[dkey];
   const pool = d.pool("all");
-  const kind = cat.kind;
+  const kind = d.kinds[Math.floor(Math.random() * d.kinds.length)];
   const entry = pool[Math.floor(Math.random() * pool.length)];
   const distractors = [];
   let guard = 0;
@@ -242,7 +179,7 @@ function sdRound(room) {
     { code: distractors[0][0], kind }, { code: distractors[1][0], kind },
   ];
   for (let i = raw.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [raw[i], raw[j]] = [raw[j], raw[i]]; }
-  room.deck = cat.deck;
+  room.deck = dkey;
   room.tiles = raw.map((t, i) => ({ ...spots[i], z: 0, code: t.code, kind: t.kind, alive: true }));
 }
 
@@ -250,7 +187,13 @@ function sdRound(room) {
 // Anything else passes the turn and deals the next player a fresh board.
 function sdAttempt(room, seat, hit) {
   const other = seat === "A" ? "B" : "A";
-  if (hit && room.tb.last[other] === "miss") return endRound(room, seat, true);
+  if (hit && room.tb.last[other] === "miss") {
+    room.sdWin = true;
+    room.status = "done";
+    room.winner = seat;
+    broadcastState(room);
+    return;
+  }
   room.tb.last[seat] = hit ? "hit" : "miss";
   passTurn(room);
   sdRound(room);
@@ -303,15 +246,12 @@ function handleMessage(client, msg) {
       return;
     }
     if (m.room) return client.send({ t: "error", msg: "No room with that code on this host." });
-    // Create a room; the veto draft starts as soon as player two joins.
+    // Create a room and deal the one-off board; it unlocks once both players are ready.
     const code = newCode();
     const token = newToken();
+    const tiles = rules.tiles(BOARD_MODE, BOARD_SIZE, BOARD_DEAL).map(({ x, y, z, code: c, kind }) => ({ x, y, z, code: c, kind, alive: true }));
     const room = {
-      code, tiles: [], status: "waiting",
-      phase: "veto",
-      categories: CATEGORIES.map(c => c.id),
-      vetoes: [], vetoTurn: "A",
-      rounds: [], round: 0, roundWins: { A: 0, B: 0 }, lastRoundWinner: null, champion: null,
+      code, tiles, status: "waiting",
       scores: { A: 0, B: 0 }, misses: { A: 0, B: 0 },
       ready: { A: false, B: false }, turn: "A", tb: null, deck: "world", sdWin: false, pending: null,
       names: { A: name, B: "" }, connected: { A: true, B: false },
@@ -329,34 +269,11 @@ function handleMessage(client, msg) {
   if (!room || !client.seat) return client.send({ t: "error", msg: "Join a room first." });
   room.touched = Date.now();
 
-  // The veto draft: alternate striking one category, two vetoes each, until three remain.
-  if (m.t === "veto") {
-    if (room.status !== "waiting" || room.phase !== "veto") return client.send({ t: "reject" });
-    if (!room.seats.A || !room.seats.B) return client.send({ t: "reject" });   // wait for player two
-    if (client.seat !== room.vetoTurn) return client.send({ t: "reject" });    // not your veto
-    const cat = String(m.cat || "");
-    if (!room.categories.includes(cat)) return client.send({ t: "reject" });   // unknown or already struck
-    room.categories = room.categories.filter(c => c !== cat);
-    room.vetoes.push({ seat: client.seat, cat });
-    if (room.vetoes.length >= 4) {
-      room.phase = "ready";
-      room.rounds = room.categories.slice();               // exactly three survive
-    } else {
-      room.vetoTurn = room.vetoTurn === "A" ? "B" : "A";
-    }
-    broadcastState(room);
-    return;
-  }
-
-  // Ready opens the next round (round 1 after the draft, rounds 2-3 after a "between" pause).
+  // Lobby: each player taps Ready; the board stays locked until both are ready.
   if (m.t === "ready") {
-    if (room.status !== "waiting" || (room.phase !== "ready" && room.phase !== "between")) return;
+    if (room.status !== "waiting") return;                 // already started (or over): ignore
     room.ready[client.seat] = true;                        // tapping Ready twice changes nothing
-    if (room.ready.A && room.ready.B) {
-      room.ready = { A: false, B: false };
-      startRound(room, room.round + 1);
-      return;
-    }
+    if (room.ready.A && room.ready.B) room.status = "playing";
     broadcastState(room);
     return;
   }
@@ -391,7 +308,7 @@ function handleMessage(client, msg) {
     a.alive = b.alive = false;
     if (room.tb) return sdAttempt(room, client.seat, true);
     room.scores[client.seat]++;
-    broadcast(room, { t: "match", a: m.a, b: m.b, by: client.seat, scores: room.scores, left: aliveTiles(room).length / 2, turn: room.turn });
+    broadcast(room, { t: "match", a: m.a, b: m.b, by: client.seat, scores: room.scores, left: aliveTiles(room).length / 2, turn: room.turn, pending: room.pending });
     if (!aliveTiles(room).length) return finishBoard(room);
     return;
   }

@@ -644,7 +644,7 @@
 
   <section class="strip" id="panel-versus" hidden>
     <div class="versus-box">
-      <p class="how" style="margin:0">A best-of-three death match. In the lobby you veto two categories each, alternating; the three survivors become rounds 1-3 and the first to two rounds is champion. On your turn, the first free tile you tap is locked in - then tap its free match. A correct pair scores and keeps the turn; a wrong pick or a dead tile costs you a point, hands one to your rival, and passes the turn. A tied round goes to sudden death on fresh questions from that category: one attempt each, first clean answer after a rival's miss wins the round. One device runs <code>node lan/server.mjs</code> and both open the address it prints.</p>
+      <p class="how" style="margin:0">A head-to-head board for two players. In the waiting room you both tap Ready and the board unlocks. On your turn, the first free tile you tap is locked in - then tap its free match. A correct pair scores and keeps the turn; a wrong pick or a dead tile costs you a point, hands one to your rival, and passes the turn. A tied board goes to sudden death on fresh geography questions: one attempt each, first clean answer after a rival's miss wins. One device runs <code>node lan/server.mjs</code> and both open the address it prints.</p>
       <div class="row" id="v-setup">
         <input type="text" id="v-name" maxlength="24" placeholder="Your name" aria-label="Your name">
         <button id="v-create" class="primary" type="button">Host a game</button>
@@ -1813,7 +1813,7 @@ function vsStatusText() {
   if (vs.status === "playing") {
     const other = vs.seat === "A" ? "B" : "A";
     const away = vs.connected && !vs.connected[other];
-    const base = `Round ${vs.round} - ${catLabel(vs.rounds[vs.round - 1])} against <b style="letter-spacing:0;font-size:1em">${esc(vs.names[other] || "your rival")}</b>${away ? " (disconnected - waiting for them)" : ""} in room <b>${vs.room}</b>.`;
+    const base = `Playing against <b style="letter-spacing:0;font-size:1em">${esc(vs.names[other] || "your rival")}</b>${away ? " (disconnected - waiting for them)" : ""} in room <b>${vs.room}</b>.`;
     return vs.tb ? base + " Sudden death - one clean answer after a rival's miss takes the round." : base;
   }
   if (vs.status === "done") return versusEndText();
@@ -1907,9 +1907,9 @@ function versusLobby() {
     $("v-lobby-note").textContent = "Share the code with player two. The board stays locked until you have both joined and tapped Ready.";
   } else {
     $("v-lobby-title").textContent = "Waiting room";
-    $("v-lobby-note").textContent = `Rounds: ${vs.rounds.map(catLabel).join(", ")}. ` + (meReady
+    $("v-lobby-note").textContent = meReady
       ? (themReady ? "Both ready - unlocking the board..." : "You are ready. Waiting for " + (vs.names[other] || "your rival") + " to tap Ready.")
-      : (themReady ? (vs.names[other] || "Your rival") + " is ready. Tap Ready to start round 1." : "Both players are in. Round 1 unlocks when you have both tapped Ready."));
+      : (themReady ? (vs.names[other] || "Your rival") + " is ready. Tap Ready to start." : "Both players are in. The board unlocks when you have both tapped Ready.");
   }
 }
 
@@ -2011,8 +2011,8 @@ function applyVersusState(msg) {
     vsStatus(vsStatusText());
     versusLobby();
     if (wasStatus === "waiting" && msg.status === "playing") {
-      toast(`Round ${vs.round}: ${catLabel(vs.rounds[vs.round - 1])} - game on!`);
-      setFact("Game on", vs.turn === vs.seat ? `Round ${vs.round} (${catLabel(vs.rounds[vs.round - 1])}) is live. Your turn: commit to a tile.` : `Round ${vs.round} (${catLabel(vs.rounds[vs.round - 1])}) is live. <b>${esc(vs.names[vs.turn] || "Your rival")}</b> has the first turn.`);
+      toast("Game on!");
+      setFact("Game on", vs.turn === vs.seat ? "The board is live. Your turn: commit to a tile." : `The board is live. <b>${esc(vs.names[vs.turn] || "Your rival")}</b> has the first turn.`);
     }
     if (wasStatus === "playing" && msg.status === "waiting" && msg.phase === "between") {
       const rw = msg.lastRoundWinner;
@@ -2045,6 +2045,7 @@ function vsMessage(msg) {
     }
     vs.scores = msg.scores;
     if (msg.turn) vs.turn = msg.turn;
+    vs.pending = msg.pending || null;
     if (tab === "versus" && state === vsState) {
       refresh();
       versusScore();

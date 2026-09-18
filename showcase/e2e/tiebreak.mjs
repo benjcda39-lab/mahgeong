@@ -1,5 +1,5 @@
-// End-to-end check for tied rounds and same-category sudden death: engineers a level
-// round 1, resolves it in sudden death, forces a 1-1 decider, and crowns one champion.
+// End-to-end check for sudden death: engineer a 9-9 cleared board, then the fresh
+// four-tile sudden-death boards until one player answers cleanly after a rival's miss.
 //
 //   node e2e/tiebreak.mjs [base-url]
 import { chromium } from "playwright";
@@ -54,142 +54,125 @@ async function newPlayer(name, profile) {
 const waitFn = (page, fn, arg) => page.waitForFunction(fn, arg, { timeout: 20000 });
 const click = (page, i) => page.locator("#board .tile").nth(i).click({ force: true });
 
-const matchIdx = `(() => { const mv = findMove(); return mv ? { lock: state.tiles.indexOf(mv[0]), tap: state.tiles.indexOf(mv[1]) } : null; })()`;
-const missIdx = `(() => {
-  const f = freeTiles();
-  const withMate = f.find(t => f.some(o => o !== t && o.code === t.code));
-  if (!withMate) return null;
-  const wrong = f.find(o => o.code !== withMate.code);
-  return wrong ? { lock: state.tiles.indexOf(withMate), tap: state.tiles.indexOf(wrong) } : null;
-})()`;
-
-async function play(page, idx) {
+async function matchOne(page) {
+  const m = await page.evaluate(() => {
+    const mv = findMove();
+    return mv ? mv.map(t => state.tiles.indexOf(t)) : null;
+  });
+  if (!m) return false;
+  await click(page, m[0]);
+  await page.waitForFunction(() => !!(vs && vs.pending), null, { timeout: 10000 });
+  await click(page, m[1]);
+  await page.waitForFunction(() => !vs.pending, null, { timeout: 10000 });
+  return true;
+}
+async function missOne(page) {
+  const idx = await page.evaluate(() => {
+    const f = freeTiles();
+    const withMate = f.find(t => f.some(o => o !== t && o.code === t.code));
+    if (!withMate) return null;
+    const wrong = f.find(o => o.code !== withMate.code);
+    if (!wrong) return null;
+    return { lock: state.tiles.indexOf(withMate), wrong: state.tiles.indexOf(wrong) };
+  });
+  if (!idx) return false;
   await click(page, idx.lock);
   await page.waitForFunction(() => !!(vs && vs.pending), null, { timeout: 10000 });
-  await click(page, idx.tap);
+  await click(page, idx.wrong);
   await page.waitForFunction(() => !vs.pending, null, { timeout: 10000 });
+  return true;
+}
+
+// Shuffle (turn player only) and retry when the scripted move is not on the board.
+async function ensureMatch(page) {
+  for (let tries = 0; tries < 4; tries++) {
+    if (await matchOne(page)) return true;
+    await page.locator("#btn-shuffle").click();
+    await page.waitForTimeout(400);
+  }
+  return matchOne(page);
+}
+async function ensureMiss(page) {
+  for (let tries = 0; tries < 4; tries++) {
+    if (await missOne(page)) return true;
+    await page.locator("#btn-shuffle").click();
+    await page.waitForTimeout(400);
+  }
+  return missOne(page);
 }
 
 const A = await newPlayer("Alice", { w: 1280, h: 800 });
 const B = await newPlayer("Bob", { w: 390, h: 844, mobile: true });
 
-// --- fast lobby path ---
+// --- fast lobby path: join + both ready ---
 await A.page.locator("#v-name").fill("Alice");
 await A.page.locator("#v-create").click();
-await waitFn(A.page, () => vs && vs.room && vs.phase === "veto");
+await waitFn(A.page, () => vs && vs.room && vs.status === "waiting");
 const code = await A.page.evaluate(() => vs.room);
 await B.page.locator("#v-name").fill("Bob");
 await B.page.locator("#v-code").fill(code);
 await B.page.locator("#v-join").click();
-await waitFn(B.page, () => vs && vs.phase === "veto" && vs.names.A === "Alice");
-let vetoCount = 0;
-for (const [p, cat] of [[A, "populations"], [B, "currencies"], [A, "presidents"], [B, "state-flags"]]) {
-  vetoCount++;
-  await p.page.locator(`[data-cat="${cat}"]`).click();
-  await A.page.waitForFunction(n => vs.vetoes.length === n, vetoCount, { timeout: 15000 });
-  await B.page.waitForFunction(n => vs.vetoes.length === n, vetoCount, { timeout: 15000 });
-}
-await A.page.waitForFunction(() => vs.phase === "ready", null, { timeout: 15000 });
+await waitFn(B.page, () => vs && vs.status === "waiting" && vs.names.A === "Alice");
 await A.page.locator("#v-ready").click();
 await B.page.locator("#v-ready").click();
-await waitFn(A.page, () => vs.status === "playing" && vs.round === 1);
-await waitFn(B.page, () => vs.status === "playing" && vs.round === 1);
-check("start: draft plus both ready opens round 1", true);
+await waitFn(A.page, () => vs.status === "playing" && state && state.tiles.length === 36);
+await waitFn(B.page, () => vs.status === "playing" && state && state.tiles.length === 36);
+check("start: the game opens on both screens", true);
 
-// --- engineer a tied round 1: each cycle is Alice +1/-1, Bob +1/-1, two pairs cleared ---
-for (let cycle = 0; cycle < 9; cycle++) {
-  for (const actor of [A, B]) {
-    let idx = await actor.page.evaluate(matchIdx);
-    for (let guard = 0; !idx && guard < 4; guard++) {
-      await actor.page.locator("#btn-shuffle").click();
-      await actor.page.waitForFunction(() => !!findMove(), null, { timeout: 10000 });
-      idx = await actor.page.evaluate(matchIdx);
-    }
-    if (!idx) throw new Error(`no move for cycle ${cycle}`);
-    await play(actor.page, idx);
-    const miss = await actor.page.evaluate(missIdx);
-    if (!miss) throw new Error(`no wrong tile for cycle ${cycle}`);
-    await play(actor.page, miss);
-  }
+// --- engineer a 9-9 tie: nine [Alice miss, Bob match, Bob miss] macros leave the
+// --- board at (0,9) with Alice to move and nine pairs left; Alice then matches out.
+// --- Her last match lands exactly (9,9): regulation ends level, sudden death starts.
+for (let macro = 1; macro <= 9; macro++) {
+  const okMissA = await ensureMiss(A.page);
+  const okMatchB = okMissA && await ensureMatch(B.page);
+  const okMissB = okMatchB && await ensureMiss(B.page);
+  if (!okMissB) { check(`tie: engineered macro ${macro}`, false, "a move was not available"); break; }
+  await waitFn(A.page, m => vs.scores.A === 0 && vs.scores.B === m && vs.turn === "A", macro);
 }
-await waitFn(A.page, () => vs.tb === true);
-await waitFn(B.page, () => vs.tb === true);
-const reg = await A.page.evaluate(() => ({ scores: { ...vs.scores }, status: vs.status, tb: vs.tb, round: vs.round }));
-check("tie: round 1 ends level and launches sudden death", reg.status === "playing" && reg.tb === true && reg.scores.A === reg.scores.B, JSON.stringify(reg));
+const mid = await A.page.evaluate(() => ({ scores: { ...vs.scores }, turn: vs.turn, alive: state.tiles.filter(t => t.alive).length }));
+check("tie: nine macros leave (0,9), Alice to move, nine pairs left",
+  mid.scores.A === 0 && mid.scores.B === 9 && mid.turn === "A" && mid.alive === 18, JSON.stringify(mid));
+for (let pair = 1; pair <= 9; pair++) {
+  const ok = await ensureMatch(A.page);
+  if (!ok) { check(`tie: Alice sweep pair ${pair}`, false, "no move"); break; }
+}
+await waitFn(A.page, () => vs.tb === true && vs.status === "playing");
+await waitFn(B.page, () => vs.tb === true && vs.status === "playing");
+const tieA = await A.page.evaluate(() => ({ scores: { ...vs.scores } }));
+check("tie: regulation ends 9-9 with the board cleared", tieA.scores.A === 9 && tieA.scores.B === 9, JSON.stringify(tieA));
 
-// --- sudden death board: four fresh tiles from the SAME category, exactly one true pair ---
+// --- sudden death: a fresh four-tile board with exactly one true pair ---
 const sdInfo = await A.page.evaluate(() => {
-  const f = freeTiles();
-  let pairs = 0;
-  for (let i = 0; i < f.length; i++) for (let j = i + 1; j < f.length; j++) if (f[i].code === f[j].code) pairs++;
-  return { alive: state.tiles.filter(t => t.alive).length, free: f.length, pairs, kinds: [...new Set(state.tiles.map(t => t.kind))].sort().join(","), roundCat: vs.rounds[vs.round - 1] };
+  const alive = state.tiles.filter(t => t.alive);
+  const counts = {};
+  alive.forEach(t => { counts[t.code] = (counts[t.code] || 0) + 1; });
+  return { alive: alive.length, pairs: Object.values(counts).filter(n => n === 2).length };
 });
-check("tiebreak: fresh four-tile board, all free, exactly one true pair", sdInfo.alive === 4 && sdInfo.free === 4 && sdInfo.pairs === 1, JSON.stringify(sdInfo));
-check("tiebreak: content is from the tied round's category", sdInfo.kinds === "capital,name", sdInfo.kinds);
-await A.page.screenshot({ path: join(SHOTS, "suddendeath-desktop.png") });
-await B.page.screenshot({ path: join(SHOTS, "suddendeath-phone.png") });
+check("tiebreak: a fresh four-tile board is dealt", sdInfo.alive === 4, JSON.stringify(sdInfo));
+check("tiebreak: exactly one true pair is on the board", sdInfo.pairs === 1, JSON.stringify(sdInfo));
+check("tiebreak: Alice (last to match) holds the first attempt", (await A.page.evaluate(() => vs.turn)) === "A");
+check("tiebreak: both screens say sudden death", /sudden death/i.test(await A.page.locator("#v-status").textContent())
+  && /sudden death/i.test(await B.page.locator("#v-status").textContent()));
 
-// --- the turn player misses; the rival answers cleanly and takes the round ---
-const firstUp = await A.page.evaluate(() => vs.turn);
-const first = firstUp === "A" ? A : B;
-const second = firstUp === "A" ? B : A;
-const miss1 = await first.page.evaluate(missIdx);
-await play(first.page, miss1);
-await waitFn(second.page, () => vs.turn !== "" + (firstUp) && state.tiles.filter(t => t.alive).length === 4 && vs.status === "playing");
-check("tiebreak: a miss passes the turn on a fresh same-category board", true);
-const winIdx = await second.page.evaluate(matchIdx);
-check("tiebreak: the rival's board has its one true pair", !!winIdx);
-await play(second.page, winIdx);
-await waitFn(A.page, () => vs.status === "waiting" && vs.phase === "between");
-await waitFn(B.page, () => vs.status === "waiting" && vs.phase === "between");
-const rw = await A.page.evaluate(() => ({ ...vs.roundWins, last: vs.lastRoundWinner }));
-check("tiebreak: clean answer after the rival's miss takes the round", rw.last === (firstUp === "A" ? "B" : "A") && rw[firstUp === "A" ? "B" : "A"] === 1, JSON.stringify(rw));
-check("tiebreak: both lobbies show the sudden-death round result", (await A.page.locator("#v-lobby-title").textContent()).match(/sudden death/i) !== null);
-
-// --- round 2 to Alice, round 3 to Alice: a 2-1 decider crowns the champion ---
-await A.page.locator("#v-ready").click();
-await B.page.locator("#v-ready").click();
-await waitFn(A.page, () => vs.status === "playing" && vs.round === 2);
-check("decider: round 2 opens after the between-rounds lobby", true);
-// Bob (first turn in round 2) yields; Alice sweeps.
-{
-  const miss = await B.page.evaluate(missIdx);
-  if (miss) await play(B.page, miss);
-}
-for (let step = 0; step < 200; step++) {
-  const st = await A.page.evaluate(() => ({ status: vs.status, phase: vs.phase, turn: vs.turn, round: vs.round }));
-  if (st.status !== "playing") break;
-  const actor = st.turn === "A" ? A : B;
-  let idx = await actor.page.evaluate(matchIdx);
-  if (!idx) { await actor.page.locator("#btn-shuffle").click(); await actor.page.waitForFunction(() => !!findMove(), null, { timeout: 10000 }); continue; }
-  await play(actor.page, idx);
-}
-await waitFn(A.page, () => vs.status === "waiting" && vs.phase === "between" && vs.roundWins.A === 1 && vs.roundWins.B === 1);
-check("decider: round 2 levels the match at 1-1", true);
-await A.page.locator("#v-ready").click();
-await B.page.locator("#v-ready").click();
-await waitFn(A.page, () => vs.status === "playing" && vs.round === 3);
-check("decider: round 3 opens", true);
-for (let step = 0; step < 200; step++) {
-  const st = await A.page.evaluate(() => ({ status: vs.status, turn: vs.turn }));
-  if (st.status !== "playing") break;
-  const actor = st.turn === "A" ? A : B;
-  let idx = await actor.page.evaluate(matchIdx);
-  if (!idx) { await actor.page.locator("#btn-shuffle").click(); await actor.page.waitForFunction(() => !!findMove(), null, { timeout: 10000 }); continue; }
-  await play(actor.page, idx);
-}
+// --- Alice misses; Bob answers cleanly: Bob takes the match ---
+const missOk = await missOne(A.page);
+check("tiebreak: Alice's attempt misses", missOk);
+await waitFn(B.page, () => vs.turn === "B" && vs.tb === true && vs.status === "playing");
+const sd2 = await B.page.evaluate(() => state.tiles.filter(t => t.alive).length);
+check("tiebreak: each attempt gets a fresh board", sd2 === 4);
+const hitOk = await matchOne(B.page);
+check("tiebreak: Bob answers cleanly", hitOk);
 await waitFn(A.page, () => vs.status === "done");
 await waitFn(B.page, () => vs.status === "done");
-const [cA, cB] = await Promise.all([
-  A.page.evaluate(() => ({ champion: vs.champion, roundWins: { ...vs.roundWins } })),
-  B.page.evaluate(() => ({ champion: vs.champion, roundWins: { ...vs.roundWins } })),
+const [wA, wB] = await Promise.all([
+  A.page.evaluate(() => ({ winner: vs.winner, sd: vs.sdwin })),
+  B.page.evaluate(() => ({ winner: vs.winner, sd: vs.sdwin })),
 ]);
-check("decider: one agreed champion on both screens", cA.champion === cB.champion && !!cA.champion
-  && Math.max(cA.roundWins.A, cA.roundWins.B) === 2, JSON.stringify(cA));
-check("decider: both players see the champion", (await A.page.locator("#v-status").textContent()).match(/[Cc]hampion/) !== null
-  && (await B.page.locator("#v-status").textContent()).match(/[Cc]hampion/) !== null);
-await A.page.screenshot({ path: join(SHOTS, "suddendeath-end-desktop.png") });
-await B.page.screenshot({ path: join(SHOTS, "suddendeath-end-phone.png") });
+check("tiebreak: a clean answer after a rival's miss wins", wA.winner === "B" && wA.sd === true && wB.winner === "B" && wB.sd === true, JSON.stringify(wA));
+check("tiebreak: both players see the result", /wins/i.test(await A.page.locator("#v-status").textContent())
+  && /you win/i.test(await B.page.locator("#v-status").textContent()));
+await A.page.screenshot({ path: join(SHOTS, "tiebreak-desktop.png") });
+await B.page.screenshot({ path: join(SHOTS, "tiebreak-phone.png") });
 
 const errors = [...A.errors, ...B.errors];
 check("tiebreak: no console or page errors anywhere", errors.length === 0, errors.join(" | "));
