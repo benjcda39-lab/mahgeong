@@ -72,6 +72,8 @@
     font-size: 16px;
     line-height: 1.4;
     min-height: 100vh;
+    /* Fast taps that turn into drags must not rubber-band the page or trigger pull-to-refresh. */
+    overscroll-behavior-y: none;
   }
   .wrap {
     max-width: 1240px;
@@ -239,6 +241,12 @@
     text-align: center;
     transition: transform .12s ease, filter .2s ease, opacity .25s ease;
     -webkit-tap-highlight-color: transparent;
+    /* A touch that starts on a tile belongs to the game, never to page scroll. */
+    touch-action: none;
+    /* Speed taps must not select text or pop the iOS callout. */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
   /* Joins the exposed side and bottom edges at the rounded corner so a tile reads as one solid block. */
   .tile::after {
@@ -1376,6 +1384,9 @@ function fitText(el, isFlag) {
 }
 function fitAllText() { if (state) state.tiles.forEach(t => t.el && fitText(t.el.querySelector(".face"), t.kind === "flag")); }
 
+// Timestamp of the last pointer press that already selected a tile, so its trailing click is ignored.
+let lastPressAt = -1e9;
+
 function mount() {
   board.innerHTML = "";
   const maxX = Math.max(...state.tiles.map(t => t.x + 2)), maxY = Math.max(...state.tiles.map(t => t.y + 2));
@@ -1404,7 +1415,10 @@ function mount() {
     if (showFlag) el.classList.add("has-flag");
     el.innerHTML = `<span class="kind">${t.kind === "name" ? deck.nameLabel : KIND_LABEL[t.kind]}</span>${showFlag ? `<span class="cf">${flagImg(c[0])}</span>` : ""}<span class="face">${shown}</span>`;
     el.setAttribute("aria-label", (t.kind === "name" ? deck.nameLabel : KIND_LABEL[t.kind]) + ": " + face);
-    el.addEventListener("click", () => onTile(i));
+    // Select on finger/mouse down - release timing decides records. Keyboard and screen-reader
+    // activations arrive as a click with no pointerdown, so those still go through click.
+    el.addEventListener("pointerdown", e => { if (e.button) return; lastPressAt = e.timeStamp; onTile(i); });
+    el.addEventListener("click", e => { if (e.timeStamp - lastPressAt > 600) onTile(i); });
     el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTile(i); } });
     if (!t.alive) el.classList.add("gone");
     t.el = el;
