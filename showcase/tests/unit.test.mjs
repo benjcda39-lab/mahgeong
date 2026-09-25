@@ -221,3 +221,15 @@ test("the whole board can be cleared pair by pair until the game is done", () =>
   assert.equal(ev(`document.getElementById("sheet-end").hidden`), false);
   assert.equal(ev(`document.querySelectorAll("#recap li").length`), 18);
 });
+
+test("a cleared practice board offers a shareable result with no daily number", () => {
+  assert.equal(ev(`document.getElementById("end-share").hidden`), false, "share section shows for practice");
+  assert.equal(ev(`document.querySelectorAll("#end-marks i").length`), 18, "result grid renders");
+  const text = ev(`document.getElementById("share-text").value`);
+  const lines = text.split("\n");
+  assert.match(lines[0], /^Mahgeong practice · Capitals · 18 countries$/);
+  assert.doesNotMatch(text, /No\. \d/, "no daily number in a practice result");
+  assert.match(lines[1], /^⏱ \d+:\d{2} · 1 miss · 1 hint$/);
+  assert.equal(lines.length, 5, "head, stats and three emoji rows");
+  assert.match(lines.slice(2).join(""), /^[🟩🟨🟥]+$/);
+});

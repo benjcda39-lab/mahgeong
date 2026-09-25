@@ -1831,9 +1831,18 @@ function markRows(marks) {
 function renderMarks(el, marks) {
   el.innerHTML = marks.map(m => `<i class="${m}"></i>`).join("");
 }
+// The daily leads with its puzzle number; a practice board has none, so it
+// names the clue type, deck size and scope instead (a speed run means
+// nothing without the board size).
+function shareHead() {
+  if (state.kind === "daily") return `${NAME} No. ${state.n} · ${MODE_NAME[state.mode]}`;
+  const d = deckOf(state);
+  const scope = state.deck === "world" && state.region !== "all" ? ` from ${REGION_NAME[state.region]}` : "";
+  return `${NAME} practice · ${MODE_NAME[state.mode]} · ${state.size} ${d.noun}${scope}${state.deal === "classic" ? " · classic deal" : ""}`;
+}
 function shareText() {
   const lines = [
-    `${NAME} No. ${state.n} · ${MODE_NAME[state.mode]}`,
+    shareHead(),
     `⏱ ${fmtTime(state.elapsed)} · ${state.mistakes} ${state.mistakes === 1 ? "miss" : "misses"} · ${state.hints} ${state.hints === 1 ? "hint" : "hints"}`,
     ...markRows(state.marks).map(r => r.map(m => MARK_EMOJI[m]).join("")),
   ];
@@ -1919,12 +1928,15 @@ function showEndSheet(isNew, best) {
     $("end-sum").textContent = `${state.size} ${d.noun}${where} matched to ${modeName} in ${fmtTime(state.elapsed)}${state.deal === "classic" ? " on a classic random deal" : ""}.`;
     $("end-side").textContent = best == null ? "–" : fmtTime(best);
     $("end-side-l").textContent = "best";
+    renderMarks($("end-marks"), state.marks);
+    $("share-text").value = shareText();
+    $("share-text").rows = 2 + markRows(state.marks).length;
     clearInterval(cdTimer);
   }
   $("end-time").textContent = fmtTime(state.elapsed);
   $("end-miss").textContent = state.mistakes;
   $("end-hints").textContent = state.hints;
-  $("end-share").hidden = !daily;
+  $("end-share").hidden = false;   // practice results are shareable too
   $("end-next").hidden = !daily;
   $("btn-again").hidden = daily;
   $("btn-end-practice").hidden = !daily;
