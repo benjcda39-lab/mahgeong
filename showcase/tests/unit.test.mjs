@@ -229,7 +229,23 @@ test("a cleared practice board offers a shareable result with no daily number", 
   const lines = text.split("\n");
   assert.match(lines[0], /^Mahgeong practice · Capitals · 18 countries$/);
   assert.doesNotMatch(text, /No\. \d/, "no daily number in a practice result");
-  assert.match(lines[1], /^⏱ \d+:\d{2} · 1 miss · 1 hint$/);
+  assert.match(lines[1], /^⏱ \d+:\d{2}\.\d{3} · 1 miss · 1 hint$/);
   assert.equal(lines.length, 5, "head, stats and three emoji rows");
   assert.match(lines.slice(2).join(""), /^[🟩🟨🟥]+$/);
+});
+
+test("precise clock and score payload preserve milliseconds", () => {
+  assert.equal(ev(`fmtPrecise(7001)`), "0:07.001");
+  assert.equal(ev(`fmtPrecise(7999)`), "0:07.999");
+  assert.equal(ev(`fmtPrecise(60007)`), "1:00.007");
+  assert.equal(ev(`state.elapsedMs >= 0`), true);
+  assert.equal(ev(`scoreBoard(state).kind`), "practice");
+  assert.match(ev(`document.getElementById("end-time").textContent`), /\.\d{3}$/);
+});
+
+test("season summary card names season, counts and champions precisely", () => {
+  const text = ev(`seasonText({ season:1, players:2, boards:3, firstScoreAt:"2026-09-26T00:00:00Z", champions:[{name:"Ben",wins:2,bestMs:7001}] })`);
+  assert.match(text, /Mahgeong · Season 1 · standings so far/);
+  assert.match(text, /2 players · 3 boards with scores/);
+  assert.match(text, /Ben · 2 records · fastest 0:07\.001/);
 });

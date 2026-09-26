@@ -18,6 +18,7 @@ import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { networkInterfaces } from "node:os";
 import vm from "node:vm";
+import { boardKey, validSubmission, submitScore, getScores, schema, seasonNumber, seasonSummary } from "./leaderboard.mjs";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const ROOT = resolve(here, "..");
@@ -35,9 +36,20 @@ function loadRules() {
   overlaps, isFree, generate, dealOrder, makeTiles, mulberry32,
   seed: r => { rng = r; },
   tiles: (mode, size, deal) => { rng = Math.random; return makeTiles(mode, size, deal); },
+  decks: DECKS, capacity,
 })`, sandbox);
 }
 const rules = loadRules();
+// The filesystem on Render's free instances is ephemeral. No DB, no leaderboard:
+// never show scores as persistent when they would vanish on a restart or deploy.
+let scoresDb = null;
+const currentSeason = seasonNumber();
+if (process.env.DATABASE_URL) {
+  const { Pool } = await import("pg");
+  scoresDb = new Pool({ connectionString: process.env.DATABASE_URL, max: 4 });
+  await scoresDb.query(schema); // fail startup rather than pretend scores are available
+}
+
 
 const BOARD_MODE = "mix", BOARD_SIZE = 18, BOARD_DEAL = "fair";
 
@@ -101,6 +113,13 @@ function attachSocket(socket, onText, onClose) {
 }
 
 // ---------- rooms ----------
+// Only accept same-origin browser requests for writes; this is CSRF hygiene, not
+// proof the score is genuine. A script or modified browser can still submit scores.
+function sameOrigin(req) {
+  const origin = req.headers.origin;
+  if (!origin || !req.headers.host) return false;
+  try { const u = new URL(origin); return ["http:", "https:"].includes(u.protocol) && u.host === req.headers.host; } catch { return false; }
+}
 const rooms = new Map();           // code -> room
 const ROOM_RE = /^[A-Z]{4}$/;
 const newCode = () => {
@@ -259,7 +278,43 @@ const HEAD = `<!doctype html>
 const page = () => HEAD + readFileSync(join(ROOT, "index.html"), "utf8") + "\n</body>\n</html>\n";
 
 const server = createServer((req, res) => {
-  const url = decodeURIComponent((req.url || "/").split("?")[0]);
+  let url;
+  try { url = decodeURIComponent((req.url || "/").split("?")[0]); }
+  catch { res.writeHead(400); return res.end("bad URL"); }
+  if (url === "/api/season") {
+    res.setHeader("content-type", "application/json; charset=utf-8");
+    res.setHeader("cache-control", "no-store");
+    if (req.method !== "GET") { res.writeHead(405); return res.end(JSON.stringify({ error: "Method not allowed." })); }
+    if (!scoresDb) { res.writeHead(503); return res.end(JSON.stringify({ error: "Season standings are not configured on this host." })); }
+    return void seasonSummary(scoresDb, currentSeason)
+      .then(data => { res.writeHead(200); res.end(JSON.stringify(data)); })
+      .catch(() => { res.writeHead(503); res.end(JSON.stringify({ error: "Season standings are temporarily unavailable." })); });
+  }
+  if (url === "/api/scores") {
+    const reply = (status, body) => { res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }); res.end(JSON.stringify(body)); };
+    if (!scoresDb) return reply(503, { error: "Leaderboard is not configured on this host." });
+    if (req.method === "GET") {
+      let board;
+      try { board = JSON.parse(new URL(req.url, "http://localhost").searchParams.get("board")); } catch { return reply(400, { error: "Invalid board." }); }
+      const key = boardKey(board, rules);
+      if (!key) return reply(400, { error: "Invalid board." });
+      return void getScores(scoresDb, key).then(data => reply(200, data)).catch(() => reply(503, { error: "Leaderboard is temporarily unavailable." }));
+    }
+    if (req.method === "POST") {
+      if (!sameOrigin(req)) return reply(403, { error: "Wrong origin." });
+      if (!String(req.headers["content-type"] || "").startsWith("application/json")) return reply(415, { error: "Send JSON." });
+      let body = "";
+      req.on("data", chunk => { body += chunk; if (body.length > 2048) req.destroy(); });
+      req.on("end", () => {
+        let data;
+        try { data = JSON.parse(body); } catch { return reply(400, { error: "Invalid score." }); }
+        if (!validSubmission(data, rules)) return reply(400, { error: "Invalid score." });
+        submitScore(scoresDb, data, rules).then(result => reply(200, result)).catch(() => reply(503, { error: "Leaderboard is temporarily unavailable." }));
+      });
+      return;
+    }
+    return reply(405, { error: "Method not allowed." });
+  }
   if (url === "/") { res.writeHead(200, { "content-type": MIME[".html"] }); return res.end(page()); }
   if (url === "/favicon.ico") { res.writeHead(204); return res.end(); }
   if (url === "/health") { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: true, rooms: rooms.size })); }

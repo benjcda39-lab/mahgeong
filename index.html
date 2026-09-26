@@ -475,6 +475,17 @@
   .sheet .btns { display: flex; gap: 8px; flex-wrap: wrap; }
 
   .share { display: grid; gap: 10px; }
+  .scoreboard { display: grid; gap: 10px; }
+  .scoreboard .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .scoreboard input { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); width: min(100%, 20ch); }
+  .scoreboard ol { margin: 0; padding-left: 2.5em; font-variant-numeric: tabular-nums; }
+  .scoreboard li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .scoreboard li span { color: var(--ink-2); }
+  .scoreboard li.you { color: var(--red); font-weight: 700; }
+  .scoreboard input, .scoreboard button { min-height: 40px; }
+  #scores-list { padding-left: 2.5em; font-variant-numeric: tabular-nums; }
+  #scores-list li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  #season-text { min-height: 210px; max-height: 38vh; overflow: auto; }
   .share-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   textarea.share-text {
     font: 14px/1.5 ui-monospace, Consolas, "SF Mono", monospace;
@@ -485,6 +496,7 @@
     color: var(--ink);
     resize: none;
     width: 100%;
+    box-sizing: border-box;
     display: block;
   }
   .countdown { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -580,6 +592,7 @@
         <button id="tab-practice" type="button" role="tab" aria-selected="false">Practice</button>
         <button id="tab-versus" type="button" role="tab" aria-selected="false">2 Player</button>
       </div>
+      <button id="btn-season" type="button">Season 1</button>
       <button id="btn-stats" class="icon" type="button" title="Your statistics" aria-label="Your statistics">
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="10" width="4" height="8" rx="1"/><rect x="8" y="4" width="4" height="14" rx="1"/><rect x="14" y="7" width="4" height="11" rx="1"/></svg>
       </button>
@@ -639,6 +652,7 @@
       </div>
     </div>
     <div class="actions">
+      <button id="btn-board-scores" type="button">High scores for this setup</button>
       <button id="btn-new" class="primary" type="button">New game</button>
     </div>
   </section>
@@ -718,6 +732,15 @@
         <textarea class="share-text" id="share-text" rows="5" readonly aria-label="Result text to share"></textarea>
       </div>
     </section>
+    <section id="end-scores">
+      <h3>High scores</h3>
+      <div class="scoreboard">
+        <p class="how">Times are reported by players. No account or anti-cheat checks yet.</p>
+        <div class="row"><input id="score-name" type="text" maxlength="24" placeholder="Your name" aria-label="Name for high scores"><button id="btn-submit-score" type="button">Add my score</button><button id="btn-view-scores" type="button">View high scores</button></div>
+        <p class="how" id="score-status" role="status">Scores are shared across players on this host.</p>
+        <ol id="score-list" hidden></ol>
+      </div>
+    </section>
     <section id="end-next">
       <h3>Next puzzle</h3>
       <div class="countdown"><b id="cd">00:00:00</b><span id="cd-l">until tomorrow's board</span><button id="btn-next" class="primary" type="button" hidden>Play it now</button></div>
@@ -731,6 +754,22 @@
       <button id="btn-end-practice" type="button">Practice a board</button>
       <button id="btn-close" type="button">Back to board</button>
     </div>
+  </div>
+
+  <div class="sheet" id="sheet-season" role="dialog" aria-labelledby="season-title" hidden>
+    <h2 id="season-title">Season summary</h2>
+    <p class="sum">Copy the standings before the season's database expires.</p>
+    <p class="how" id="season-status" role="status">Loading season...</p>
+    <textarea class="share-text" id="season-text" rows="8" readonly aria-label="Season summary to share" hidden></textarea>
+    <div class="btns"><button class="primary" id="btn-copy-season" type="button" hidden>Copy season summary</button><button id="btn-season-close" type="button">Close</button></div>
+  </div>
+
+  <div class="sheet" id="sheet-scores" role="dialog" aria-labelledby="scores-title" hidden>
+    <h2 id="scores-title">High scores</h2>
+    <p class="sum" id="scores-board"></p>
+    <p class="how" id="scores-status" role="status">Loading scores...</p>
+    <ol id="scores-list"></ol>
+    <div class="btns"><button id="btn-scores-close" type="button">Close</button></div>
   </div>
 
   <div class="sheet" id="sheet-stats" role="dialog" aria-labelledby="stats-title" hidden>
@@ -1383,6 +1422,7 @@ function valueOf(c, kind) {
 }
 function uniqKey(c, kind) { return kind === "currency" ? currencyShort(c[4]).toLowerCase() : valueOf(c, kind); }
 function fmtTime(s) { return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+function fmtPrecise(ms) { return fmtTime(Math.floor(ms / 1000)) + "." + String(ms % 1000).padStart(3, "0"); }
 function pad2(n) { return String(n).padStart(2, "0"); }
 function factFor(c, kind) {
   const n = c[1];
@@ -1521,21 +1561,21 @@ const $ = id => document.getElementById(id);
 const board = $("board"), viewport = $("viewport");
 
 function baseState(extra) {
-  return { deck: "world", region: "all", layout: "wide", mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
+  return { deck: "world", region: "all", layout: "wide", mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, elapsedMs: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
 }
 function snapshotOf(s) {
-  const { kind, n, deck, region, layout, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag } = s;
-  return { kind, n, deck, region, layout, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
+  const { kind, n, deck, region, layout, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag } = s;
+  return { kind, n, deck, region, layout, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
 }
 function saveDaily() { if (state && state.kind === "daily") LS.set(KEY.daily + state.n, snapshotOf(state)); }
 
 function newPractice(deck, region, mode, size, deal) {
+  stopTimer();
   const d = DECKS[deck];
   const tiles = makeTiles(mode, size, deal, d.pool(region), d.kinds);
   let layout = "wide";
   if (wantPortrait() && relayout(tiles, PORTRAIT[size], deal)) layout = "portrait";
   state = baseState({ kind: "practice", deck, region, layout, mode, size, deal, tiles });
-  stopTimer();
   mount();
   $("placard").hidden = true;
   const what = d.noun.replace(/ies$/, "y").replace(/s$/, "");
@@ -1546,10 +1586,11 @@ function newPractice(deck, region, mode, size, deal) {
 }
 
 function loadDaily() {
+  stopTimer();
   const n = todayNumber(), spec = dailySpec(n);
   const saved = LS.get(KEY.daily + n);
   if (saved && saved.tiles && saved.tiles.length) {
-    state = { ...baseState(), ...saved, kind: "daily", n, running: false, sel: -1 };
+    state = { ...baseState(), ...saved, elapsedMs: saved.elapsedMs ?? saved.elapsed * 1000, legacyTime: saved.legacyTime || (saved.elapsedMs == null && saved.done), kind: "daily", n, running: false, sel: -1 };
   } else {
     rng = mulberry32(n * 1000003 + 7);
     let tiles, layout = "wide";
@@ -1561,7 +1602,6 @@ function loadDaily() {
     }
     state = baseState({ kind: "daily", n, layout, mode: spec.mode, size: spec.size, deal: "fair", tiles });
   }
-  stopTimer();
   $("d-no").textContent = "No. " + n;
   $("d-date").textContent = dateOfNumber(n).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   $("d-mode").textContent = MODE_NAME[state.mode] + " · " + state.size + " pairs";
@@ -1661,13 +1701,13 @@ function refresh() {
   $("st-left").textContent = aliveTiles().length / 2;
   $("st-miss").textContent = state.mistakes;
   $("st-hints").textContent = state.hints;
-  $("st-time").textContent = fmtTime(state.elapsed);
+  $("st-time").textContent = fmtPrecise(state.elapsedMs ?? state.elapsed * 1000);
   if (state.kind === "daily") {
     $("st-side").textContent = computeStats().streak;
     $("st-side-l").textContent = "streak";
   } else {
     const best = getBest();
-    $("st-side").textContent = best == null ? "–" : fmtTime(best);
+    $("st-side").textContent = best == null ? "–" : fmtPrecise(best);
     $("st-side-l").textContent = "best";
   }
   $("btn-hint").disabled = state.done;
@@ -1682,14 +1722,28 @@ function setFact(stamp, html, stuck = false) {
 
 function startTimer() {
   if (state.running || state.done || state.kind === "versus") return;
+  state.elapsedMs = state.elapsedMs ?? state.elapsed * 1000;
   state.running = true;
-  timer = setInterval(() => {
-    state.elapsed++;
-    $("st-time").textContent = fmtTime(state.elapsed);
-    if (state.kind === "daily" && state.elapsed % 5 === 0) saveDaily();
-  }, 1000);
+  // performance.now measures active time without interval drift. Pauses and restores
+  // retain accumulated milliseconds, without claiming old whole-second runs were exact.
+  const start = performance.now(), previous = state.elapsedMs;
+  let savedAt = Math.floor(previous / 5000);
+  const tick = () => {
+    state.elapsedMs = previous + Math.max(0, Math.floor(performance.now() - start));
+    state.elapsed = Math.floor(state.elapsedMs / 1000);
+    $("st-time").textContent = fmtPrecise(state.elapsedMs);
+    if (state.kind === "daily" && Math.floor(state.elapsedMs / 5000) > savedAt) {
+      savedAt = Math.floor(state.elapsedMs / 5000); saveDaily();
+    }
+  };
+  timer = setInterval(tick, 30);
+  state.clockTick = tick;
 }
-function stopTimer() { clearInterval(timer); timer = null; if (state) state.running = false; }
+function stopTimer() {
+  if (state?.running) state.clockTick?.();
+  clearInterval(timer); timer = null;
+  if (state) { state.running = false; delete state.clockTick; }
+}
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && state && state.running) {
     stopTimer(); saveDaily();
@@ -1800,7 +1854,7 @@ function bestKey() {
   const scope = (state.deck && state.deck !== "world" ? state.deck + "-" : "") + (state.region && state.region !== "all" ? state.region + "-" : "");
   return KEY.best + scope + state.mode + "-" + state.size + (state.deal === "classic" ? "-classic" : "");
 }
-function getBest() { try { const v = localStorage.getItem(bestKey()); return v == null ? null : +v; } catch { return null; } }
+function getBest() { try { const v = localStorage.getItem(bestKey() + "-ms"); return v == null ? null : +v; } catch { return null; } }
 
 function computeStats() {
   const res = LS.get(KEY.results) || {};
@@ -1819,7 +1873,7 @@ function computeStats() {
 }
 function recordResult() {
   const res = LS.get(KEY.results) || {};
-  if (!res[state.n]) res[state.n] = { t: state.elapsed, m: state.mistakes, h: state.hints, s: state.shuffles, marks: state.marks.join(""), mode: state.mode };
+  if (!res[state.n]) res[state.n] = { t: state.elapsed, ms: state.elapsedMs, m: state.mistakes, h: state.hints, s: state.shuffles, marks: state.marks.join(""), mode: state.mode };
   LS.set(KEY.results, res);
 }
 const MARK_EMOJI = { g: "🟩", y: "🟨", r: "🟥" };
@@ -1843,7 +1897,7 @@ function shareHead() {
 function shareText() {
   const lines = [
     shareHead(),
-    `⏱ ${fmtTime(state.elapsed)} · ${state.mistakes} ${state.mistakes === 1 ? "miss" : "misses"} · ${state.hints} ${state.hints === 1 ? "hint" : "hints"}`,
+    `⏱ ${fmtPrecise(state.elapsedMs ?? state.elapsed * 1000)} · ${state.mistakes} ${state.mistakes === 1 ? "miss" : "misses"} · ${state.hints} ${state.hints === 1 ? "hint" : "hints"}`,
     ...markRows(state.marks).map(r => r.map(m => MARK_EMOJI[m]).join("")),
   ];
   return lines.join("\n");
@@ -1886,14 +1940,14 @@ function startCountdown() {
 
 function showPlacard() {
   $("placard").hidden = false;
-  $("pl-title").textContent = "No. " + state.n + " cleared in " + fmtTime(state.elapsed);
+  $("pl-title").textContent = "No. " + state.n + " cleared in " + fmtPrecise(state.elapsedMs ?? state.elapsed * 1000);
   $("pl-sum").textContent = `${MODE_NAME[state.mode]} · ${state.mistakes} ${state.mistakes === 1 ? "miss" : "misses"} · ${state.hints} ${state.hints === 1 ? "hint" : "hints"}`;
   renderMarks($("pl-marks"), state.marks);
 }
 
 function finish() {
-  state.done = true;
   stopTimer();
+  state.done = true;
   const daily = state.kind === "daily";
   let best = null, isNew = false;
   if (daily) {
@@ -1902,7 +1956,7 @@ function finish() {
     showPlacard();
   } else {
     best = getBest();
-    if (best == null || state.elapsed < best) { best = state.elapsed; isNew = true; try { localStorage.setItem(bestKey(), String(best)); } catch {} }
+    if (best == null || state.elapsedMs < best) { best = state.elapsedMs; isNew = true; try { localStorage.setItem(bestKey() + "-ms", String(best)); } catch {} }
   }
   refresh();
   showEndSheet(isNew, best);
@@ -1912,7 +1966,7 @@ function showEndSheet(isNew, best) {
   const daily = state.kind === "daily";
   const modeName = { capital: "capitals", flag: "flags", currency: "currencies", population: "populations", leader: "leaders", years: "years in office", number: "numbers", mix: "a mix of clues" }[state.mode];
   if (daily) {
-    $("end-title").textContent = "No. " + state.n + " cleared in " + fmtTime(state.elapsed);
+    $("end-title").textContent = "No. " + state.n + " cleared in " + fmtPrecise(state.elapsedMs ?? state.elapsed * 1000);
     $("end-sum").textContent = `${MODE_NAME[state.mode]} · ${dateOfNumber(state.n).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}. Same board as everyone else today.`;
     const st = computeStats();
     $("end-side").textContent = st.streak;
@@ -1925,18 +1979,19 @@ function showEndSheet(isNew, best) {
     $("end-title").textContent = isNew ? "Board cleared. New best!" : "Board cleared";
     const d = deckOf(state);
     const where = state.deck === "world" && state.region !== "all" ? ` from ${REGION_NAME[state.region]}` : "";
-    $("end-sum").textContent = `${state.size} ${d.noun}${where} matched to ${modeName} in ${fmtTime(state.elapsed)}${state.deal === "classic" ? " on a classic random deal" : ""}.`;
-    $("end-side").textContent = best == null ? "–" : fmtTime(best);
+    $("end-sum").textContent = `${state.size} ${d.noun}${where} matched to ${modeName} in ${fmtPrecise(state.elapsedMs ?? state.elapsed * 1000)}${state.deal === "classic" ? " on a classic random deal" : ""}.`;
+    $("end-side").textContent = best == null ? "–" : fmtPrecise(best);
     $("end-side-l").textContent = "best";
     renderMarks($("end-marks"), state.marks);
     $("share-text").value = shareText();
     $("share-text").rows = 2 + markRows(state.marks).length;
     clearInterval(cdTimer);
   }
-  $("end-time").textContent = fmtTime(state.elapsed);
+  $("end-time").textContent = fmtPrecise(state.elapsedMs ?? state.elapsed * 1000);
   $("end-miss").textContent = state.mistakes;
   $("end-hints").textContent = state.hints;
   $("end-share").hidden = false;   // practice results are shareable too
+  setupScoreResult();
   $("end-next").hidden = !daily;
   $("btn-again").hidden = daily;
   $("btn-end-practice").hidden = !daily;
@@ -1954,8 +2009,8 @@ function showStats() {
   $("s-played").textContent = st.played;
   $("s-streak").textContent = st.streak;
   $("s-max").textContent = st.max;
-  $("s-avg").textContent = st.avg == null ? "–" : fmtTime(st.avg);
-  $("s-best").textContent = st.best == null ? "–" : fmtTime(st.best);
+  $("s-avg").textContent = st.avg == null ? "–" : fmtPrecise(Math.round(Object.values(st.res).reduce((sum, r) => sum + (r.ms ?? r.t * 1000), 0) / st.played));
+  $("s-best").textContent = st.best == null ? "–" : fmtPrecise(Math.min(...Object.values(st.res).map(r => r.ms ?? r.t * 1000)));
   const maxN = Math.max(1, ...st.dist.map(d => d.n));
   const mine = state && state.kind === "daily" && state.done ? state.elapsed : null;
   $("s-bars").innerHTML = st.dist.map(d => {
@@ -1971,13 +2026,135 @@ function showStats() {
 
 // ---------- overlay ----------
 function openSheet(id) {
-  ["sheet-end", "sheet-stats", "sheet-help"].forEach(s => { $(s).hidden = s !== id; });
+  ["sheet-end", "sheet-stats", "sheet-help", "sheet-scores", "sheet-season"].forEach(s => { $(s).hidden = s !== id; });
   $("overlay").hidden = false;
 }
 function closeOverlay() { $("overlay").hidden = true; clearInterval(cdTimer); }
 $("overlay").addEventListener("click", e => { if (e.target === $("overlay")) closeOverlay(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("overlay").hidden) closeOverlay(); });
 
+
+// ---------- friendly cross-player leaderboard ----------
+// A random browser-local ID only deduplicates this device's submissions. It is not
+// authentication. Results and times are self-reported, so treat this as a friendly table.
+const SCORE_ID_KEY = "mahgeong-score-player-id", SCORE_NAME_KEY = "mahgeong-score-name";
+function scoreBoard(s) {
+  if (s.kind === "daily") return { kind: "daily", n: s.n };
+  return { kind: "practice", deck: s.deck, region: s.region, mode: s.mode, size: s.size, deal: s.deal };
+}
+function playerId() {
+  let id = localStorage.getItem(SCORE_ID_KEY);
+  if (!id) { id = crypto.randomUUID(); localStorage.setItem(SCORE_ID_KEY, id); }
+  return id;
+}
+function scoreRows(target, scores) {
+  const el = $(target);
+  el.replaceChildren();
+  scores.forEach(r => {
+    const li = document.createElement("li");
+    li.classList.toggle("you", !!r.you);
+    // textContent prevents player names from becoming HTML.
+    li.textContent = `${r.name}${r.you ? " (you)" : ""} · ${fmtPrecise(r.milliseconds)} · ${r.mistakes} ${r.mistakes === 1 ? "miss" : "misses"}`;
+    const extra = document.createElement("span");
+    extra.textContent = ` · ${r.hints} ${r.hints === 1 ? "hint" : "hints"} · ${r.shuffles} ${r.shuffles === 1 ? "shuffle" : "shuffles"}`;
+    li.append(extra); el.append(li);
+  });
+  el.hidden = false;
+}
+async function scoreRequest(board, result) {
+  const path = "/api/scores";
+  const response = await fetch(result ? path : `${path}?board=${encodeURIComponent(JSON.stringify(board))}`,
+    result ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(result) } : {});
+  if (!response.ok) throw new Error(response.status === 503 || response.status === 404 ? "High scores aren't available on this host yet." : "Could not load high scores.");
+  return response.json();
+}
+function setupScoreResult() {
+  $("score-name").value = localStorage.getItem(SCORE_NAME_KEY) || "";
+  $("score-status").textContent = state.legacyTime
+    ? "This older result was timed only to whole seconds. Play again for a precise score."
+    : "Add your score if you want your name on this board's high scores.";
+  $("score-list").hidden = true;
+  $("score-list").replaceChildren();
+  $("btn-submit-score").disabled = !!state.legacyTime;
+}
+async function viewEndScores() {
+  const board = scoreBoard(state);
+  $("score-status").textContent = "Loading scores...";
+  try {
+    const data = await scoreRequest(board);
+    if (JSON.stringify(board) !== JSON.stringify(scoreBoard(state))) return;
+    scoreRows("score-list", data.scores);
+    $("score-status").textContent = data.scores.length ? "Top 10 for this board." : "No scores yet for this board.";
+  } catch (e) { $("score-status").textContent = e.message; }
+}
+async function submitEndScore() {
+  const name = $("score-name").value.trim();
+  if (!name || [...name].length > 24 || /[\x00-\x1f\x7f]/.test(name)) { $("score-status").textContent = "Enter a name (up to 24 characters)."; return; }
+  if (!state.done || state.legacyTime) return;
+  const board = scoreBoard(state);
+  const result = { board, playerId: playerId(), name, milliseconds: Math.max(1, state.elapsedMs ?? state.elapsed * 1000), mistakes: state.mistakes, hints: state.hints, shuffles: state.shuffles };
+  $("btn-submit-score").disabled = true;
+  $("score-status").textContent = "Saving score...";
+  try {
+    const data = await scoreRequest(board, result);
+    if (JSON.stringify(board) !== JSON.stringify(scoreBoard(state))) return;
+    localStorage.setItem(SCORE_NAME_KEY, name);
+    scoreRows("score-list", data.scores);
+    $("score-status").textContent = data.mine ? `Saved. Your best for this board is #${data.mine.rank}.` : "Saved.";
+  } catch (e) { $("score-status").textContent = e.message; }
+  finally { $("btn-submit-score").disabled = false; }
+}
+async function showBoardScores() {
+  const board = { kind: "practice", deck: deckVal(), region: regionVal(), mode: modeVal(), size: sizeVal(), deal: dealVal() };
+  $("scores-board").textContent = `${MODE_NAME[board.mode]} · ${board.size} ${DECKS[board.deck].noun}${board.deck === "world" && board.region !== "all" ? " from " + REGION_NAME[board.region] : ""} · ${board.deal} deal`;
+  $("scores-status").textContent = "Loading scores...";
+  $("scores-list").replaceChildren();
+  openSheet("sheet-scores");
+  try {
+    const data = await scoreRequest(board);
+    if ($("sheet-scores").hidden) return;
+    scoreRows("scores-list", data.scores);
+    $("scores-status").textContent = data.scores.length ? "Top 10 for this setup." : "No scores yet for this setup.";
+  } catch (e) { $("scores-status").textContent = e.message; }
+}
+
+// The copy card is generated from server standings now, while they still exist.
+// It is a season-to-date snapshot, not a promise that expiry will preserve data.
+function seasonText(data) {
+  const lines = [`Mahgeong · Season ${data.season} · standings so far`,
+    `${data.players} ${data.players === 1 ? "player" : "players"} · ${data.boards} ${data.boards === 1 ? "board" : "boards"} with scores`];
+  if (data.firstScoreAt) lines.push(`First score: ${String(data.firstScoreAt).slice(0, 10)}`);
+  lines.push("Most board records:");
+  if (!data.champions.length) lines.push("No scores yet.");
+  data.champions.forEach((c, i) => lines.push(`${i + 1}. ${c.name} · ${c.wins} ${c.wins === 1 ? "record" : "records"} · fastest ${fmtPrecise(c.bestMs)}`));
+  return lines.join("\n");
+}
+async function showSeason() {
+  $("season-status").textContent = "Loading season...";
+  $("season-text").hidden = true;
+  $("btn-copy-season").hidden = true;
+  openSheet("sheet-season");
+  try {
+    const response = await fetch("/api/season");
+    if (!response.ok) throw new Error("Season standings aren't available on this host yet.");
+    const data = await response.json();
+    if ($("sheet-season").hidden) return;
+    $("btn-season").textContent = `Season ${data.season}`;
+    $("season-title").textContent = `Season ${data.season} summary`;
+    $("season-text").value = seasonText(data);
+    $("season-text").rows = Math.min(13, $("season-text").value.split("\n").length + 1);
+    $("season-text").hidden = false;
+    $("btn-copy-season").hidden = false;
+    $("season-status").textContent = "Current standings. New results may change them.";
+  } catch (e) { $("season-status").textContent = e.message; }
+}
+async function copySeason() {
+  const text = $("season-text").value;
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; } catch {}
+  if (!ok) { try { $("season-text").focus(); $("season-text").select(); ok = document.execCommand("copy"); } catch {} }
+  toast(ok ? "Season summary copied." : "Select the season summary text and copy it.");
+}
 
 // ---------- two-player over the LAN ----------
 // The server (lan/server.mjs) is authoritative: it deals the board, validates pairs and
@@ -2185,6 +2362,7 @@ $("v-join").addEventListener("click", () => {
 
 // ---------- tabs and wiring ----------
 function setTab(t) {
+  stopTimer();
   if (state && state.kind === "daily") saveDaily();
   tab = t;
   $("tab-daily").setAttribute("aria-selected", t === "daily");
@@ -2193,7 +2371,6 @@ function setTab(t) {
   $("panel-daily").hidden = t !== "daily";
   $("panel-practice").hidden = t !== "practice";
   $("panel-versus").hidden = t !== "versus";
-  stopTimer();
   closeOverlay();
   if (t === "daily") loadDaily();
   else if (t === "practice") fresh();
@@ -2249,6 +2426,13 @@ $("btn-hint").addEventListener("click", hint);
 $("btn-shuffle").addEventListener("click", reshuffle);
 $("btn-stuck-shuffle").addEventListener("click", reshuffle);
 $("btn-share").addEventListener("click", copyResult);
+$("btn-season").addEventListener("click", showSeason);
+$("btn-copy-season").addEventListener("click", copySeason);
+$("btn-season-close").addEventListener("click", closeOverlay);
+$("btn-view-scores").addEventListener("click", viewEndScores);
+$("btn-submit-score").addEventListener("click", submitEndScore);
+$("btn-board-scores").addEventListener("click", showBoardScores);
+$("btn-scores-close").addEventListener("click", closeOverlay);
 $("btn-next").addEventListener("click", () => setTab("daily"));
 $("btn-stats").addEventListener("click", showStats);
 $("btn-stats-close").addEventListener("click", closeOverlay);
@@ -2282,7 +2466,7 @@ function start(data) {
     $("tab-practice").setAttribute("aria-selected", "true");
     $("panel-daily").hidden = true;
     $("panel-practice").hidden = false;
-    state = { ...baseState(), ...p, deck: p.deck || "world", region: p.region || "all", deal: p.deal || "fair", kind: "practice", running: false, sel: -1 };
+    state = { ...baseState(), ...p, elapsedMs: p.elapsedMs ?? p.elapsed * 1000, legacyTime: p.legacyTime || (p.elapsedMs == null && p.done), deck: p.deck || "world", region: p.region || "all", deal: p.deal || "fair", kind: "practice", running: false, sel: -1 };
     mount();
     setFact("Resumed", "Your board is back where you left it.");
     return;
