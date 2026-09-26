@@ -44,3 +44,42 @@ npm run e2e:versus # two-player LAN game against the real server, incl. reconnec
 ## Public site (GitHub Pages)
 
 `index.html` has no page wrapper because the artifact host adds one. For GitHub Pages, `node build-pages.mjs` writes a wrapped copy to `docs/index.html`, and Pages serves the `docs` folder from `main`. Run the build and commit `docs/` after every change to `index.html`.
+
+## Shared high scores (optional)
+
+The same Node server that hosts the WebSocket rooms also serves `/api/scores`. Set
+`DATABASE_URL` to a PostgreSQL connection string on that server and run `npm ci`
+then `node lan/server.mjs ${PORT:-8642}`. The server creates its score table on
+startup. Without a database, gameplay still works, but the scoreboard says it is
+unavailable and no score is stored. Never place `DATABASE_URL` in `index.html` or
+commit it. On Render, configure it as a secret environment variable on the web
+service, and use a persistent PostgreSQL service. A free Render web service's
+filesystem is erased on spin-down, restart and deploy; a free Render Postgres
+instance expires after 30 days. Choose durable database service/backup policy
+before publicly promising lasting records.
+
+Each player chooses a public display name (up to 24 characters). The browser keeps
+an anonymous local ID to hold one best result per player per board. Clearing
+browser storage creates a new ID. The table shows the top 10 with times in
+milliseconds, then mistakes as tiebreak, then earliest submission. Practice
+boards have separate tables for deck, region, clue type, size and fair/classic
+deal. Each daily puzzle number has its own table. Players submit a completed
+result with a button; results are not uploaded automatically. The server
+validates fields and board combinations, but cannot verify a solo game or
+its timer: treat scores as friendly, self-reported competition. Old results
+recorded before the millisecond clock cannot be submitted as precise times.
+
+## Seasons
+
+`SEASON_NUMBER` is an optional positive integer environment variable (defaults
+to 1). Set it to 2 when starting a new database/season; the app never guesses
+that an expiry and a season boundary happened at the same moment. The Season
+button fetches a current snapshot from `/api/season`: distinct players and
+boards with scores, plus the top 10 people by number of board records they
+hold (a tie goes to the fastest of those records). The share card says
+"standings so far" and can be copied any time while the database is live.
+Before a free database expires, someone must copy or archive the summary.
+The database's automatic expiry does not preserve the old season's scores,
+create a new free database, or provide a post-expiry recap. The season
+summary counts records by browser-local player ID, so a player using several
+devices can appear more than once.
