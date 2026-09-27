@@ -110,6 +110,8 @@
   .tabs button { border: 0; border-radius: 0; border-right: 1px solid var(--line); padding: 8px 18px; background: transparent; font-weight: 600; }
   .tabs button:last-child { border-right: 0; }
   .tabs button[aria-selected="true"] { background: var(--ink); color: var(--panel); font-weight: 700; }
+  .seg.clock label { padding: 8px 14px; font-weight: 600; }
+  .seg.clock[hidden] { display: none; }
   button.icon { width: 38px; height: 38px; padding: 0; display: inline-grid; place-items: center; font-family: "Fraunces", Georgia, serif; font-weight: 900; font-size: 20px; }
   button.icon svg { width: 20px; height: 20px; fill: currentColor; }
 
@@ -592,6 +594,10 @@
         <button id="tab-practice" type="button" role="tab" aria-selected="false">Practice</button>
         <button id="tab-versus" type="button" role="tab" aria-selected="false">2 Player</button>
       </div>
+      <div class="seg clock" role="radiogroup" aria-label="Clock" title="Play against the clock, or take your time">
+        <input type="radio" name="clock" id="clock-timed" value="timed" checked><label for="clock-timed">Timed</label>
+        <input type="radio" name="clock" id="clock-untimed" value="untimed"><label for="clock-untimed">Untimed</label>
+      </div>
       <button id="btn-season" type="button">Season 1</button>
       <button id="btn-stats" class="icon" type="button" title="Your statistics" aria-label="Your statistics">
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="10" width="4" height="8" rx="1"/><rect x="8" y="4" width="4" height="14" rx="1"/><rect x="14" y="7" width="4" height="11" rx="1"/></svg>
@@ -678,7 +684,7 @@
 
   <div class="stats">
     <div class="stat"><b id="st-left">0</b><span>pairs left</span></div>
-    <div class="stat"><b id="st-time">0:00</b><span>time</span></div>
+    <div class="stat"><b id="st-time">0:00</b><span id="st-time-l">time</span></div>
     <div class="stat"><b id="st-miss">0</b><span>misses</span></div>
     <div class="stat"><b id="st-hints">0</b><span>hints</span></div>
     <div class="stat"><b id="st-side">–</b><span id="st-side-l">streak</span></div>
@@ -717,7 +723,7 @@
     <h2 id="end-title">Board cleared</h2>
     <p class="sum" id="end-sum"></p>
     <div class="grid">
-      <div><b id="end-time">0:00</b><span>time</span></div>
+      <div><b id="end-time">0:00</b><span id="end-time-l">time</span></div>
       <div><b id="end-miss">0</b><span>misses</span></div>
       <div><b id="end-hints">0</b><span>hints</span></div>
       <div><b id="end-side">–</b><span id="end-side-l">streak</span></div>
@@ -798,7 +804,7 @@
       <ul class="rules">
         <li><span class="k">1</span><span>Every country has one partner tile on the board: its <b>capital</b>, its <b>flag</b>, its <b>currency</b> or its <b>population</b>. Tap the two to clear them.</span></li>
         <li><span class="k">2</span><span>A tile is <b>free</b> when nothing sits on top of it and its left or right side is open. Shaded tiles are blocked until you uncover them.</span></li>
-        <li><span class="k">3</span><span>One puzzle a day, the same board for everyone. The clock runs while you play and pauses when you leave the tab.</span></li>
+        <li><span class="k">3</span><span>One puzzle a day, the same board for everyone. The clock runs while you play and pauses when you leave the tab. Rather not race? Switch to <b>Untimed</b> up top: you still get your streak and your grid, just no time.</span></li>
         <li><span class="k">4</span><span>Hints and shuffles are always there, but they show up in your result grid.</span></li>
       </ul>
       <div class="legend"><span><i></i>clean pair</span><span><i class="y"></i>needed a hint or shuffle</span><span><i class="r"></i>wrong pair first</span></div>
@@ -1357,7 +1363,7 @@ function dailySpec(n) {
 }
 
 // ---------- storage ----------
-const KEY = { daily: "mahgeong-daily-", results: "mahgeong-results", help: "mahgeong-help-seen", best: "mahgeong-best-" };
+const KEY = { daily: "mahgeong-daily-", results: "mahgeong-results", help: "mahgeong-help-seen", best: "mahgeong-best-", clock: "mahgeong-clock" };
 const LS = {
   get(k) { try { const v = localStorage.getItem(k); return v == null ? null : JSON.parse(v); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
@@ -1561,11 +1567,11 @@ const $ = id => document.getElementById(id);
 const board = $("board"), viewport = $("viewport");
 
 function baseState(extra) {
-  return { deck: "world", region: "all", layout: "wide", mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, elapsedMs: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
+  return { deck: "world", region: "all", layout: "wide", timed: true, mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, elapsedMs: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
 }
 function snapshotOf(s) {
-  const { kind, n, deck, region, layout, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag } = s;
-  return { kind, n, deck, region, layout, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
+  const { kind, n, deck, region, layout, timed, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag } = s;
+  return { kind, n, deck, region, layout, timed, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
 }
 function saveDaily() { if (state && state.kind === "daily") LS.set(KEY.daily + state.n, snapshotOf(state)); }
 
@@ -1575,8 +1581,9 @@ function newPractice(deck, region, mode, size, deal) {
   const tiles = makeTiles(mode, size, deal, d.pool(region), d.kinds);
   let layout = "wide";
   if (wantPortrait() && relayout(tiles, PORTRAIT[size], deal)) layout = "portrait";
-  state = baseState({ kind: "practice", deck, region, layout, mode, size, deal, tiles });
+  state = baseState({ kind: "practice", deck, region, layout, timed: clockVal(), mode, size, deal, tiles });
   mount();
+  syncClock();
   $("placard").hidden = true;
   const what = d.noun.replace(/ies$/, "y").replace(/s$/, "");
   setFact("How to play", deal === "classic"
@@ -1600,8 +1607,9 @@ function loadDaily() {
       rng = mulberry32(n * 7919 + 3);
       try { if (relayout(tiles, PORTRAIT[spec.size])) layout = "portrait"; } finally { rng = Math.random; }
     }
-    state = baseState({ kind: "daily", n, layout, mode: spec.mode, size: spec.size, deal: "fair", tiles });
+    state = baseState({ kind: "daily", n, layout, timed: clockVal(), mode: spec.mode, size: spec.size, deal: "fair", tiles });
   }
+  syncClock();
   $("d-no").textContent = "No. " + n;
   $("d-date").textContent = dateOfNumber(n).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   $("d-mode").textContent = MODE_NAME[state.mode] + " · " + state.size + " pairs";
@@ -1612,7 +1620,7 @@ function loadDaily() {
   } else {
     $("placard").hidden = true;
     setFact(saved ? "Resumed" : "No. " + n, saved
-      ? "Your board is back where you left it. The clock starts again on your next tap."
+      ? (state.timed ? "Your board is back where you left it. The clock starts again on your next tap." : "Your board is back where you left it. No clock on this one.")
       : "Tap two free tiles that belong to the same country. A tile is free when nothing sits on top of it and its left or right side is open. Shaded tiles are blocked.");
   }
 }
@@ -1701,7 +1709,8 @@ function refresh() {
   $("st-left").textContent = aliveTiles().length / 2;
   $("st-miss").textContent = state.mistakes;
   $("st-hints").textContent = state.hints;
-  $("st-time").textContent = fmtPrecise(state.elapsedMs ?? state.elapsed * 1000);
+  $("st-time").textContent = state.timed ? fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : "–";
+  $("st-time-l").textContent = state.timed ? "time" : "untimed";
   if (state.kind === "daily") {
     $("st-side").textContent = computeStats().streak;
     $("st-side-l").textContent = "streak";
@@ -1721,7 +1730,7 @@ function setFact(stamp, html, stuck = false) {
 }
 
 function startTimer() {
-  if (state.running || state.done || state.kind === "versus") return;
+  if (state.running || state.done || state.kind === "versus" || !state.timed) return;
   state.elapsedMs = state.elapsedMs ?? state.elapsed * 1000;
   state.running = true;
   // performance.now measures active time without interval drift. Pauses and restores
@@ -1864,16 +1873,17 @@ function computeStats() {
   for (const d of days) { cur = (prev != null && d === prev + 1) ? cur + 1 : 1; max = Math.max(max, cur); prev = d; }
   const today = todayNumber();
   const streak = (prev === today || prev === today - 1) ? cur : 0;
-  const times = days.map(d => res[d].t);
-  const avg = played ? Math.round(times.reduce((a, b) => a + b, 0) / played) : null;
-  const best = played ? Math.min(...times) : null;
+  const times = days.map(d => res[d].t).filter(t => typeof t === "number");
+  const timed = times.length;
+  const avg = timed ? Math.round(times.reduce((a, b) => a + b, 0) / timed) : null;
+  const best = timed ? Math.min(...times) : null;
   const buckets = [["Under 2:00", 0, 120], ["2:00 to 3:59", 120, 240], ["4:00 to 5:59", 240, 360], ["6:00 to 9:59", 360, 600], ["10:00 and over", 600, Infinity]];
   const dist = buckets.map(([label, lo, hi]) => ({ label, lo, hi, n: times.filter(t => t >= lo && t < hi).length }));
-  return { played, streak, max, avg, best, dist, res };
+  return { played, timed, streak, max, avg, best, dist, res };
 }
 function recordResult() {
   const res = LS.get(KEY.results) || {};
-  if (!res[state.n]) res[state.n] = { t: state.elapsed, ms: state.elapsedMs, m: state.mistakes, h: state.hints, s: state.shuffles, marks: state.marks.join(""), mode: state.mode };
+  if (!res[state.n]) res[state.n] = { t: state.timed ? state.elapsed : null, ms: state.timed ? state.elapsedMs : null, m: state.mistakes, h: state.hints, s: state.shuffles, marks: state.marks.join(""), mode: state.mode };
   LS.set(KEY.results, res);
 }
 const MARK_EMOJI = { g: "🟩", y: "🟨", r: "🟥" };
@@ -1897,7 +1907,7 @@ function shareHead() {
 function shareText() {
   const lines = [
     shareHead(),
-    `⏱ ${fmtPrecise(state.elapsedMs ?? state.elapsed * 1000)} · ${state.mistakes} ${state.mistakes === 1 ? "miss" : "misses"} · ${state.hints} ${state.hints === 1 ? "hint" : "hints"}`,
+    `⏱ ${state.timed ? fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : "untimed"} · ${state.mistakes} ${state.mistakes === 1 ? "miss" : "misses"} · ${state.hints} ${state.hints === 1 ? "hint" : "hints"}`,
     ...markRows(state.marks).map(r => r.map(m => MARK_EMOJI[m]).join("")),
   ];
   return lines.join("\n");
@@ -1940,7 +1950,7 @@ function startCountdown() {
 
 function showPlacard() {
   $("placard").hidden = false;
-  $("pl-title").textContent = "No. " + state.n + " cleared in " + fmtPrecise(state.elapsedMs ?? state.elapsed * 1000);
+  $("pl-title").textContent = "No. " + state.n + (state.timed ? " cleared in " + fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : " cleared, untimed");
   $("pl-sum").textContent = `${MODE_NAME[state.mode]} · ${state.mistakes} ${state.mistakes === 1 ? "miss" : "misses"} · ${state.hints} ${state.hints === 1 ? "hint" : "hints"}`;
   renderMarks($("pl-marks"), state.marks);
 }
@@ -1956,7 +1966,7 @@ function finish() {
     showPlacard();
   } else {
     best = getBest();
-    if (best == null || state.elapsedMs < best) { best = state.elapsedMs; isNew = true; try { localStorage.setItem(bestKey() + "-ms", String(best)); } catch {} }
+    if (state.timed && (best == null || state.elapsedMs < best)) { best = state.elapsedMs; isNew = true; try { localStorage.setItem(bestKey() + "-ms", String(best)); } catch {} }
   }
   refresh();
   showEndSheet(isNew, best);
@@ -1966,7 +1976,7 @@ function showEndSheet(isNew, best) {
   const daily = state.kind === "daily";
   const modeName = { capital: "capitals", flag: "flags", currency: "currencies", population: "populations", leader: "leaders", years: "years in office", number: "numbers", mix: "a mix of clues" }[state.mode];
   if (daily) {
-    $("end-title").textContent = "No. " + state.n + " cleared in " + fmtPrecise(state.elapsedMs ?? state.elapsed * 1000);
+    $("end-title").textContent = "No. " + state.n + (state.timed ? " cleared in " + fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : " cleared");
     $("end-sum").textContent = `${MODE_NAME[state.mode]} · ${dateOfNumber(state.n).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}. Same board as everyone else today.`;
     const st = computeStats();
     $("end-side").textContent = st.streak;
@@ -1979,7 +1989,7 @@ function showEndSheet(isNew, best) {
     $("end-title").textContent = isNew ? "Board cleared. New best!" : "Board cleared";
     const d = deckOf(state);
     const where = state.deck === "world" && state.region !== "all" ? ` from ${REGION_NAME[state.region]}` : "";
-    $("end-sum").textContent = `${state.size} ${d.noun}${where} matched to ${modeName} in ${fmtPrecise(state.elapsedMs ?? state.elapsed * 1000)}${state.deal === "classic" ? " on a classic random deal" : ""}.`;
+    $("end-sum").textContent = `${state.size} ${d.noun}${where} matched to ${modeName}${state.timed ? " in " + fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : ", untimed"}${state.deal === "classic" ? " on a classic random deal" : ""}.`;
     $("end-side").textContent = best == null ? "–" : fmtPrecise(best);
     $("end-side-l").textContent = "best";
     renderMarks($("end-marks"), state.marks);
@@ -1987,7 +1997,8 @@ function showEndSheet(isNew, best) {
     $("share-text").rows = 2 + markRows(state.marks).length;
     clearInterval(cdTimer);
   }
-  $("end-time").textContent = fmtPrecise(state.elapsedMs ?? state.elapsed * 1000);
+  $("end-time").textContent = state.timed ? fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : "–";
+  $("end-time-l").textContent = state.timed ? "time" : "untimed";
   $("end-miss").textContent = state.mistakes;
   $("end-hints").textContent = state.hints;
   $("end-share").hidden = false;   // practice results are shareable too
@@ -2009,17 +2020,19 @@ function showStats() {
   $("s-played").textContent = st.played;
   $("s-streak").textContent = st.streak;
   $("s-max").textContent = st.max;
-  $("s-avg").textContent = st.avg == null ? "–" : fmtPrecise(Math.round(Object.values(st.res).reduce((sum, r) => sum + (r.ms ?? r.t * 1000), 0) / st.played));
-  $("s-best").textContent = st.best == null ? "–" : fmtPrecise(Math.min(...Object.values(st.res).map(r => r.ms ?? r.t * 1000)));
+  const timedMs = Object.values(st.res).filter(r => typeof r.t === "number").map(r => r.ms ?? r.t * 1000);
+  $("s-avg").textContent = timedMs.length ? fmtPrecise(Math.round(timedMs.reduce((a, b) => a + b, 0) / timedMs.length)) : "–";
+  $("s-best").textContent = timedMs.length ? fmtPrecise(Math.min(...timedMs)) : "–";
   const maxN = Math.max(1, ...st.dist.map(d => d.n));
-  const mine = state && state.kind === "daily" && state.done ? state.elapsed : null;
+  const mine = state && state.kind === "daily" && state.done && state.timed ? state.elapsed : null;
   $("s-bars").innerHTML = st.dist.map(d => {
     const me = mine != null && mine >= d.lo && mine < d.hi;
     const w = d.n ? Math.max(8, Math.round(100 * d.n / maxN)) : 0;
     return `<div class="bar${d.n ? "" : " empty"}"><span>${d.label}</span><b class="${me ? "me" : ""}" style="width:${d.n ? w + "%" : "26px"}">${d.n}</b></div>`;
   }).join("");
+  const untimed = st.played - st.timed;
   $("stats-sum").textContent = st.played
-    ? `${st.played} daily ${st.played === 1 ? "puzzle" : "puzzles"} cleared. Practice boards don't count.`
+    ? `${st.played} daily ${st.played === 1 ? "puzzle" : "puzzles"} cleared${untimed ? `, ${untimed} of them untimed (times below are for timed days only)` : ""}. Practice boards don't count.`
     : "No daily puzzles cleared yet. Practice boards don't count.";
   openSheet("sheet-stats");
 }
@@ -2070,12 +2083,14 @@ async function scoreRequest(board, result) {
 }
 function setupScoreResult() {
   $("score-name").value = localStorage.getItem(SCORE_NAME_KEY) || "";
-  $("score-status").textContent = state.legacyTime
+  $("score-status").textContent = !state.timed
+    ? "Untimed boards don't go on the high scores. Play with the clock on to post a time."
+    : state.legacyTime
     ? "This older result was timed only to whole seconds. Play again for a precise score."
     : "Add your score if you want your name on this board's high scores.";
   $("score-list").hidden = true;
   $("score-list").replaceChildren();
-  $("btn-submit-score").disabled = !!state.legacyTime;
+  $("btn-submit-score").disabled = !!state.legacyTime || !state.timed;
 }
 async function viewEndScores() {
   const board = scoreBoard(state);
@@ -2090,7 +2105,7 @@ async function viewEndScores() {
 async function submitEndScore() {
   const name = $("score-name").value.trim();
   if (!name || [...name].length > 24 || /[\x00-\x1f\x7f]/.test(name)) { $("score-status").textContent = "Enter a name (up to 24 characters)."; return; }
-  if (!state.done || state.legacyTime) return;
+  if (!state.done || state.legacyTime || !state.timed) return;
   const board = scoreBoard(state);
   const result = { board, playerId: playerId(), name, milliseconds: Math.max(1, state.elapsedMs ?? state.elapsed * 1000), mistakes: state.mistakes, hints: state.hints, shuffles: state.shuffles };
   $("btn-submit-score").disabled = true;
@@ -2371,6 +2386,7 @@ function setTab(t) {
   $("panel-daily").hidden = t !== "daily";
   $("panel-practice").hidden = t !== "practice";
   $("panel-versus").hidden = t !== "versus";
+  document.querySelector(".seg.clock").hidden = t === "versus";
   closeOverlay();
   if (t === "daily") loadDaily();
   else if (t === "practice") fresh();
@@ -2383,6 +2399,35 @@ const regionVal = () => deckVal() === "world" ? radioVal("region") : "all";
 const modeVal = () => radioVal("mode");
 const sizeVal = () => +radioVal("size");
 const dealVal = () => radioVal("deal");
+const clockVal = () => radioVal("clock") !== "untimed";
+// The toggle shows the clock of the board in play, or the saved preference once a board is done.
+// New boards take whatever the toggle says.
+function syncClock() {
+  if (!state) return;
+  const timed = state.done ? LS.get(KEY.clock) !== "untimed" : state.timed;
+  setRadio("clock", timed ? "timed" : "untimed");
+}
+function boardStarted() { return !!(state && !state.done && (state.sel >= 0 || state.elapsed || state.elapsedMs || state.log.length || state.mistakes || state.hints || state.shuffles)); }
+document.querySelector(".seg.clock").addEventListener("change", () => {
+  const timed = clockVal();
+  if (state && !state.done && state.kind !== "versus") {
+    if (!timed) {
+      // Going untimed is always allowed; the time so far is thrown away.
+      const started = boardStarted();
+      state.timed = false; stopTimer(); state.elapsed = 0; state.elapsedMs = 0;
+      refresh(); saveDaily();
+      if (started) toast("Clock off for this board. Take your time.");
+    } else if (boardStarted()) {
+      // The clock can't start partway through: the time would be missing the moves already made.
+      setRadio("clock", "untimed");
+      toast("This board stays untimed. Finish it or start a new one to play against the clock.");
+      return;
+    } else {
+      state.timed = true; refresh(); saveDaily();
+    }
+  }
+  LS.set(KEY.clock, clockVal() ? "timed" : "untimed");
+});
 // Rebuild the mode buttons for the chosen deck, keeping the current mode where it still exists.
 function renderModes(keep) {
   const d = DECKS[deckVal()];
@@ -2445,6 +2490,7 @@ document.querySelector("#panel-practice .controls").addEventListener("change", e
 });
 renderModes("capital");
 fitModes();
+if (LS.get(KEY.clock) === "untimed") setRadio("clock", "untimed");
 document.fonts && document.fonts.ready.then(() => { fitAllText(); fit(); });
 
 // Carry the game across a republish.
@@ -2468,6 +2514,7 @@ function start(data) {
     $("panel-practice").hidden = false;
     state = { ...baseState(), ...p, elapsedMs: p.elapsedMs ?? p.elapsed * 1000, legacyTime: p.legacyTime || (p.elapsedMs == null && p.done), deck: p.deck || "world", region: p.region || "all", deal: p.deal || "fair", kind: "practice", running: false, sel: -1 };
     mount();
+    syncClock();
     setFact("Resumed", "Your board is back where you left it.");
     return;
   }
