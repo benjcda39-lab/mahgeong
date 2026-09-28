@@ -255,7 +255,7 @@
     justify-content: center;
     padding: 8px 8px 12px;
     text-align: center;
-    transition: transform .12s ease, filter .2s ease, opacity .25s ease;
+    transition: transform .12s ease, filter .2s ease, opacity .25s ease, box-shadow .2s ease;
     -webkit-tap-highlight-color: transparent;
     /* A touch that starts on a tile belongs to the game, never to page scroll. */
     touch-action: none;
@@ -355,7 +355,49 @@
     margin-top: 6px;
   }
 
-  .tile.blocked { filter: brightness(.6) saturate(.45); cursor: default; }
+  /* Blocked tiles go near-black so the board reads bright = playable, dark = locked.
+     A ::before veil does the blacking-out, so the fade back to bright still animates
+     when a tile unlocks. Locked faces flip to muted light tones so they stay readable
+     for planning ahead; flag images dim separately since the veil sits beneath them. */
+  .tile::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: #171512;
+    opacity: 0;
+    transition: opacity .2s ease;
+    pointer-events: none;
+  }
+  .tile .kind { z-index: 1; }
+  .tile .cf, .tile .face { position: relative; z-index: 1; }
+  .tile .kind, .tile .face { transition: color .2s ease; }
+  .flag-img { transition: filter .2s ease; }
+  .tile.blocked {
+    cursor: default;
+    color: #B3AC9B;
+    box-shadow:
+      inset 0 0 0 1px rgba(0,0,0,.55),
+      inset 0 2px 0 rgba(255,255,255,.07),
+      inset 0 -3px 0 rgba(0,0,0,.5),
+      7px 8px 0 #171512,
+      8px 10px 0 #0B0A08,
+      12px 16px 18px var(--shadow);
+  }
+  .tile.blocked::before { opacity: .97; }
+  .tile.blocked::after { background: linear-gradient(160deg, #171512 25%, #0B0A08); }
+  .tile.blocked .face { text-shadow: none; }
+  .tile.blocked .kind { color: #8A8374; }
+  .tile.blocked.k-capital .kind { color: #C07A6C; }
+  .tile.blocked.k-population .kind, .tile.blocked.k-population .face,
+  .tile.blocked.k-years .kind, .tile.blocked.k-years .face { color: #7E96B8; }
+  .tile.blocked.k-currency .kind, .tile.blocked.k-currency .face,
+  .tile.blocked.k-number .kind, .tile.blocked.k-number .face { color: #7FA98C; }
+  .tile.blocked.k-flag .kind { color: #B8A26E; }
+  .tile.blocked .flag-img { filter: brightness(.55) saturate(.5); }
+  .tile.blocked .flag-img.shaped { filter: brightness(.55) saturate(.5) drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
+  .tile.blocked.nudge { filter: none; }
+  .tile.blocked.nudge::before { opacity: .75; }
   .tile.free { filter: brightness(1.06) saturate(1.08); }
   .tile.free:hover { transform: translate(-2px, -3px); }
   .tile.selected {
