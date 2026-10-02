@@ -429,6 +429,7 @@
       14px 18px 20px var(--shadow);
     animation: pulse .7s ease-in-out 4;
   }
+  .tile.fatal { box-shadow: 0 0 0 4px var(--red), 7px 8px 0 var(--tile-edge), 8px 10px 0 var(--tile-edge-2); }
   .tile.wrong { animation: shake .35s ease; box-shadow: 0 0 0 3px var(--red), 7px 8px 0 var(--tile-edge), 8px 10px 0 var(--tile-edge-2); }
   .tile.nudge { animation: nudge .3s ease; filter: brightness(.7) saturate(.85); }
   .tile.gone { transform: scale(.4) rotate(-6deg); opacity: 0; pointer-events: none; }
@@ -519,6 +520,14 @@
     box-shadow: 0 24px 60px rgba(0,0,0,.45);
   }
   .sheet[hidden] { display: none; }
+  .sheet.over h2 { color: var(--red); font-size: 44px; letter-spacing: .02em; text-transform: uppercase; }
+  .sheet.over { border-top: 6px solid var(--red); }
+  #doom { position: fixed; inset: 0; pointer-events: none; z-index: 900; opacity: 0; background: radial-gradient(ellipse at center, rgba(181,48,31,0) 35%, rgba(181,48,31,.55) 100%); }
+  #doom.go { animation: doom .9s ease-out; }
+  @keyframes doom { 0% { opacity: 1; } 100% { opacity: 0; } }
+  body.over #board { filter: grayscale(.6); transition: filter .5s; }
+  body.death-on #st-miss { color: var(--red); }
+  @media (prefers-reduced-motion: reduce) { #doom.go { animation: none; opacity: .5; } }
   .sheet h2 {
     font-family: "Fraunces", Georgia, serif;
     font-weight: 900;
@@ -738,6 +747,13 @@
           <input type="radio" name="deal" id="deal-classic" value="classic"><label for="deal-classic" title="Random deal like real mahjong solitaire. Dead ends happen.">Classic</label>
         </div>
       </div>
+      <div class="group">
+        <span>Rules</span>
+        <div class="seg" role="radiogroup" aria-label="Rules">
+          <input type="radio" name="rules" id="rules-normal" value="normal" checked><label for="rules-normal" title="Mistakes are counted, play on">Normal</label>
+          <input type="radio" name="rules" id="rules-death" value="death"><label for="rules-death" title="One wrong pair ends the game. No hints.">&#9760; Death match</label>
+        </div>
+      </div>
     </div>
     <div class="actions">
       <button id="btn-board-scores" type="button">High scores for this setup</button>
@@ -812,6 +828,7 @@
   <p class="how" id="deck-note">197 countries in the deck. Populations are 2024 estimates; capitals follow the seat of government where a country has more than one.</p>
 </div>
 
+<div id="doom" aria-hidden="true"></div>
 <div class="overlay" id="overlay" hidden>
   <div class="sheet" id="sheet-end" role="dialog" aria-labelledby="end-title" hidden>
     <h2 id="end-title">Board cleared</h2>
@@ -1457,7 +1474,7 @@ function dailySpec(n) {
 }
 
 // ---------- storage ----------
-const KEY = { daily: "mahgeong-daily-", results: "mahgeong-results", help: "mahgeong-help-seen", best: "mahgeong-best-", clock: "mahgeong-clock", shade: "mahgeong-shade" };
+const KEY = { daily: "mahgeong-daily-", results: "mahgeong-results", help: "mahgeong-help-seen", best: "mahgeong-best-", clock: "mahgeong-clock", shade: "mahgeong-shade", rules: "mahgeong-rules" };
 const LS = {
   get(k) { try { const v = localStorage.getItem(k); return v == null ? null : JSON.parse(v); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
@@ -1661,11 +1678,11 @@ const $ = id => document.getElementById(id);
 const board = $("board"), viewport = $("viewport");
 
 function baseState(extra) {
-  return { deck: "world", region: "all", layout: "wide", timed: true, mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, elapsedMs: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
+  return { deck: "world", region: "all", layout: "wide", timed: true, death: false, over: false, mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, elapsedMs: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
 }
 function snapshotOf(s) {
-  const { kind, n, deck, region, layout, timed, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag } = s;
-  return { kind, n, deck, region, layout, timed, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
+  const { kind, n, deck, region, layout, timed, death, over, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag } = s;
+  return { kind, n, deck, region, layout, timed, death, over, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
 }
 function saveDaily() { if (state && state.kind === "daily") LS.set(KEY.daily + state.n, snapshotOf(state)); }
 
@@ -1675,12 +1692,13 @@ function newPractice(deck, region, mode, size, deal) {
   const tiles = makeTiles(mode, size, deal, d.pool(region), d.kinds);
   let layout = "wide";
   if (wantPortrait() && relayout(tiles, PORTRAIT[size], deal)) layout = "portrait";
-  state = baseState({ kind: "practice", deck, region, layout, timed: clockVal(), mode, size, deal, tiles });
+  state = baseState({ kind: "practice", deck, region, layout, timed: clockVal(), death: deathVal(), mode, size, deal, tiles });
   mount();
   syncClock();
   $("placard").hidden = true;
   const what = d.noun.replace(/ies$/, "y").replace(/s$/, "");
-  setFact("How to play", deal === "classic"
+  if (state.death) setFact("Death match", `One wrong pair and it's over. No hints. Tap two free tiles from the same ${what}, and don't miss.`);
+  else setFact("How to play", deal === "classic"
     ? `Classic deal: the tiles landed at random, so this board may not be clearable. Tap two free tiles from the same ${what}. If you dead-end, shuffle or redeal.`
     : `Tap two free tiles that belong to the same ${what}. A tile is free when nothing sits on top of it and its left or right side is open. Shaded tiles are blocked.`);
   closeOverlay();
@@ -1813,7 +1831,9 @@ function refresh() {
     $("st-side").textContent = best == null ? "–" : fmtPrecise(best);
     $("st-side-l").textContent = "best";
   }
-  $("btn-hint").disabled = state.done;
+  $("btn-hint").disabled = state.done || !!state.death;
+  document.body.classList.toggle("death-on", !!state.death);
+  document.body.classList.toggle("over", !!state.over);
   $("btn-shuffle").disabled = state.done;
 }
 
@@ -1873,9 +1893,23 @@ function onTile(i) {
     state.missFlag = true;
     flash(s.el, "wrong", 350); flash(t.el, "wrong", 350);
     state.sel = -1;
+    if (state.death && state.kind === "practice") return gameOver(s, t);
     refresh();
     saveDaily();
   }
+}
+
+// Death match: one wrong pair ends the run. The two tiles stay marked, the screen flashes red,
+// and the sheet comes up a beat later with a one-tap restart.
+function gameOver(a, b) {
+  stopTimer();
+  state.done = true; state.over = true;
+  state.lastMiss = [a.code, b.code, a.kind, b.kind];
+  [a, b].forEach(t => t.el.classList.add("fatal"));
+  refresh();
+  setFact("Game over", "One wrong pair ends a death match. Hit Try again for a fresh board.", true);
+  const d = $("doom"); d.classList.remove("go"); void d.offsetWidth; d.classList.add("go");
+  setTimeout(() => { if (state.over && state.done) { showEndSheet(false, null); $("btn-again").focus(); } }, 700);
 }
 
 function matchPair(a, b) {
@@ -1910,6 +1944,7 @@ function findMove() {
 
 function hint() {
   if (state.done) return;
+  if (state.death) { toast("No hints in death match."); return; }
   const m = findMove();
   if (!m) { setFact("Stuck", stuckText(), true); return; }
   state.hints++;
@@ -1955,7 +1990,7 @@ function reshuffle() {
 // ---------- results, stats, sharing ----------
 function bestKey() {
   const scope = (state.deck && state.deck !== "world" ? state.deck + "-" : "") + (state.region && state.region !== "all" ? state.region + "-" : "");
-  return KEY.best + scope + state.mode + "-" + state.size + (state.deal === "classic" ? "-classic" : "");
+  return KEY.best + scope + state.mode + "-" + state.size + (state.deal === "classic" ? "-classic" : "") + (state.death ? "-death" : "");
 }
 function getBest() { try { const v = localStorage.getItem(bestKey() + "-ms"); return v == null ? null : +v; } catch { return null; } }
 
@@ -1996,11 +2031,12 @@ function shareHead() {
   if (state.kind === "daily") return `${NAME} No. ${state.n} · ${MODE_NAME[state.mode]}`;
   const d = deckOf(state);
   const scope = state.deck === "world" && state.region !== "all" ? ` from ${REGION_NAME[state.region]}` : "";
-  return `${NAME} practice · ${MODE_NAME[state.mode]} · ${state.size} ${d.noun}${scope}${state.deal === "classic" ? " · classic deal" : ""}`;
+  return `${NAME} practice · ${MODE_NAME[state.mode]} · ${state.size} ${d.noun}${scope}${state.deal === "classic" ? " · classic deal" : ""}${state.death ? " · ☠ death match" : ""}`;
 }
 function shareText() {
   const lines = [
     shareHead(),
+    ...(state.over ? [`☠ Fell with ${aliveTiles().length / 2} of ${state.size} pairs left`] : []),
     `⏱ ${state.timed ? fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : "untimed"} · ${state.mistakes} ${state.mistakes === 1 ? "miss" : "misses"} · ${state.hints} ${state.hints === 1 ? "hint" : "hints"}`,
     ...markRows(state.marks).map(r => r.map(m => MARK_EMOJI[m]).join("")),
   ];
@@ -2080,12 +2116,20 @@ function showEndSheet(isNew, best) {
     $("share-text").rows = 2 + markRows(state.marks).length;
     startCountdown();
   } else {
-    $("end-title").textContent = isNew ? "Board cleared. New best!" : "Board cleared";
+    $("end-title").textContent = state.over ? "Game over" : state.death ? (isNew ? "Survived. New best!" : "Survived!") : isNew ? "Board cleared. New best!" : "Board cleared";
     const d = deckOf(state);
     const where = state.deck === "world" && state.region !== "all" ? ` from ${REGION_NAME[state.region]}` : "";
     $("end-sum").textContent = `${state.size} ${d.noun}${where} matched to ${modeName}${state.timed ? " in " + fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : ", untimed"}${state.deal === "classic" ? " on a classic random deal" : ""}.`;
     $("end-side").textContent = best == null ? "–" : fmtPrecise(best);
     $("end-side-l").textContent = "best";
+    if (state.over) {
+      const left = aliveTiles().length / 2, cleared = state.size - left;
+      const [ca, cb, ka, kb] = state.lastMiss || [];
+      const what = k => k === "name" ? "the name" : "the " + k;
+      $("end-sum").textContent = `Death match over: ${cleared} of ${state.size} ${d.noun} cleared, then a wrong pair${state.lastMiss ? " (" + BY_CODE[ca][1] + (ca === cb ? "" : " with " + BY_CODE[cb][1]) + ")" : ""}.`;
+      $("end-side").textContent = cleared + "/" + state.size;
+      $("end-side-l").textContent = "pairs cleared";
+    } else if (state.death) $("end-sum").textContent += " No mistakes. Death match survived.";
     renderMarks($("end-marks"), state.marks);
     $("share-text").value = shareText();
     $("share-text").rows = 2 + markRows(state.marks).length;
@@ -2097,6 +2141,9 @@ function showEndSheet(isNew, best) {
   $("end-hints").textContent = state.hints;
   $("end-share").hidden = false;   // practice results are shareable too
   setupScoreResult();
+  $("end-scores").hidden = !!state.death;   // death-match runs stay off the regular high-score tables
+  $("sheet-end").classList.toggle("over", !!state.over);
+  $("btn-again").textContent = state.over ? "Try again" : "Play again";
   $("end-next").hidden = !daily;
   $("btn-again").hidden = daily;
   $("btn-end-practice").hidden = !daily;
@@ -2648,6 +2695,7 @@ const modeVal = () => radioVal("mode");
 const sizeVal = () => +radioVal("size");
 const dealVal = () => radioVal("deal");
 const clockVal = () => radioVal("clock") !== "untimed";
+const deathVal = () => radioVal("rules") === "death";
 // The toggle shows the clock of the board in play, or the saved preference once a board is done.
 // New boards take whatever the toggle says.
 function syncClock() {
@@ -2758,11 +2806,13 @@ $("btn-help-close").addEventListener("click", () => { LS.set(KEY.help, 1); close
 document.querySelector("#panel-practice .controls").addEventListener("change", e => {
   if (e.target.name === "deck") renderModes(modeVal());
   if (e.target.name === "deck" || e.target.name === "region") fitModes();
+  if (e.target.name === "rules") LS.set(KEY.rules, deathVal() ? "death" : "normal");
   fresh();
 });
 renderModes("capital");
 fitModes();
 if (LS.get(KEY.clock) === "untimed") setRadio("clock", "untimed");
+if (LS.get(KEY.rules) === "death") setRadio("rules", "death");
 document.fonts && document.fonts.ready.then(() => { fitAllText(); fit(); });
 
 // Carry the game across a republish.
@@ -2779,6 +2829,7 @@ function start(data) {
     fitModes();
     setRadio("size", p.size);
     setRadio("deal", p.deal || "fair");
+    setRadio("rules", p.death ? "death" : "normal");
     tab = "practice";
     $("tab-daily").setAttribute("aria-selected", "false");
     $("tab-practice").setAttribute("aria-selected", "true");
