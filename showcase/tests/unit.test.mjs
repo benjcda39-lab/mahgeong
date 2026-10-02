@@ -260,3 +260,31 @@ test("shade slider: defaults to the near-black look, applies, and persists", () 
   assert.equal(ev(`document.documentElement.classList.contains("shade-soft")`), false);
   assert.equal(ev(`localStorage.getItem("mahgeong-shade")`), "100");
 });
+
+test("death match: a wrong pair ends the run, no hints, off the leaderboard; normal rules unaffected", () => {
+  ev(`setRadio("rules", "death"); fresh()`);
+  assert.equal(ev(`state.death`), true);
+  assert.equal(ev(`document.getElementById("btn-hint").disabled`), true);
+  const bad = ev(`(() => { const f = freeTiles(); for (const a of f) for (const b of f) if (a !== b && a.code !== b.code) return [state.tiles.indexOf(a), state.tiles.indexOf(b)]; })()`);
+  clickTile(bad[0]); clickTile(bad[1]);
+  assert.equal(ev(`state.over && state.done`), true);
+  assert.equal(ev(`state.mistakes`), 1);
+  assert.equal(ev(`document.querySelectorAll("#board .tile.fatal").length`), 2);
+  ev(`showEndSheet(false, null)`);
+  assert.equal(ev(`document.getElementById("end-title").textContent`), "Game over");
+  assert.equal(ev(`document.getElementById("end-scores").hidden`), true);
+  assert.match(ev(`shareText()`), /death match/);
+  // a correct pair after game over does nothing; Try again deals a fresh live board
+  ev(`document.getElementById("btn-again").click()`);
+  assert.equal(ev(`state.death && !state.over && !state.done`), true);
+  const m = ev(`(findMove() || []).map(t => state.tiles.indexOf(t))`);
+  clickTile(m[0]); clickTile(m[1]);
+  assert.equal(ev(`state.mistakes`), 0);
+  assert.equal(ev(`state.tiles.filter(t => !t.alive).length`), 2);
+  ev(`setRadio("rules", "normal"); fresh()`);
+  const bad2 = ev(`(() => { const f = freeTiles(); for (const a of f) for (const b of f) if (a !== b && a.code !== b.code) return [state.tiles.indexOf(a), state.tiles.indexOf(b)]; })()`);
+  clickTile(bad2[0]); clickTile(bad2[1]);
+  assert.equal(ev(`state.done`), false);
+  assert.equal(ev(`state.mistakes`), 1);
+  assert.equal(ev(`document.getElementById("btn-hint").disabled`), false);
+});
