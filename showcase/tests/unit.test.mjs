@@ -249,3 +249,14 @@ test("season summary card names season, counts and champions precisely", () => {
   assert.match(text, /2 players · 3 boards with scores/);
   assert.match(text, /Ben · 2 records · fastest 0:07\.001/);
 });
+
+test("shade slider: defaults to the near-black look, applies, and persists", () => {
+  assert.equal(ev(`document.documentElement.style.getPropertyValue("--veil")`), "0.970");
+  ev(`document.getElementById("shade-range").value = 20; document.getElementById("shade-range").dispatchEvent(new Event("input"))`);
+  assert.equal(ev(`document.documentElement.style.getPropertyValue("--veil")`), "0.290");
+  assert.equal(ev(`document.documentElement.classList.contains("shade-soft")`), true);
+  assert.equal(ev(`localStorage.getItem("mahgeong-shade")`), "20");
+  ev(`document.getElementById("shade-reset").click()`);
+  assert.equal(ev(`document.documentElement.classList.contains("shade-soft")`), false);
+  assert.equal(ev(`localStorage.getItem("mahgeong-shade")`), "100");
+});

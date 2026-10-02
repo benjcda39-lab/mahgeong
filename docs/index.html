@@ -380,12 +380,12 @@
       inset 0 0 0 1px rgba(0,0,0,.55),
       inset 0 2px 0 rgba(255,255,255,.07),
       inset 0 -3px 0 rgba(0,0,0,.5),
-      7px 8px 0 #171512,
-      8px 10px 0 #0B0A08,
+      7px 8px 0 color-mix(in srgb, #171512 var(--veil-pct, 97%), var(--tile-edge)),
+      8px 10px 0 color-mix(in srgb, #0B0A08 var(--veil-pct, 97%), var(--tile-edge-2)),
       12px 16px 18px var(--shadow);
   }
-  .tile.blocked::before { opacity: .97; }
-  .tile.blocked::after { background: linear-gradient(160deg, #171512 25%, #0B0A08); }
+  .tile.blocked::before { opacity: var(--veil, .97); }
+  .tile.blocked::after { background: linear-gradient(160deg, color-mix(in srgb, #171512 var(--veil-pct, 97%), var(--tile-edge)) 25%, color-mix(in srgb, #0B0A08 var(--veil-pct, 97%), var(--tile-edge-2))); }
   .tile.blocked .face { text-shadow: none; }
   .tile.blocked .kind { color: #8A8374; }
   .tile.blocked.k-capital .kind { color: #C07A6C; }
@@ -394,8 +394,31 @@
   .tile.blocked.k-currency .kind, .tile.blocked.k-currency .face,
   .tile.blocked.k-number .kind, .tile.blocked.k-number .face { color: #7FA98C; }
   .tile.blocked.k-flag .kind { color: #B8A26E; }
-  .tile.blocked .flag-img { filter: brightness(.55) saturate(.5); }
-  .tile.blocked .flag-img.shaped { filter: brightness(.55) saturate(.5) drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
+  .tile.blocked .flag-img { filter: brightness(var(--flag-b, .55)) saturate(var(--flag-s, .5)); }
+  .tile.blocked .flag-img.shaped { filter: brightness(var(--flag-b, .55)) saturate(var(--flag-s, .5)) drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
+  /* Soft shading (slider low): the veil is too light for pale text, so locked faces keep the normal dark ink. */
+  .shade-soft .tile.blocked { color: var(--tile-ink); }
+  .shade-soft .tile.blocked .face { text-shadow: 0 1px 0 rgba(255,255,255,.5); }
+  .shade-soft .tile.blocked .kind { color: var(--tile-ink-2); }
+  .shade-soft .tile.blocked.k-capital .kind { color: #B5301F; }
+  .shade-soft .tile.blocked.k-population .kind, .shade-soft .tile.blocked.k-population .face,
+  .shade-soft .tile.blocked.k-years .kind, .shade-soft .tile.blocked.k-years .face { color: #245A9E; }
+  .shade-soft .tile.blocked.k-currency .kind, .shade-soft .tile.blocked.k-currency .face,
+  .shade-soft .tile.blocked.k-number .kind, .shade-soft .tile.blocked.k-number .face { color: #2A7245; }
+  .shade-soft .tile.blocked.k-flag .kind { color: #C6962B; }
+
+  /* tile contrast control (accessibility) */
+  .topbar { position: relative; }
+  .shade-pop {
+    position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; width: min(300px, 100%);
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px 12px; box-shadow: 0 14px 34px rgba(0,0,0,.4);
+  }
+  .shade-pop[hidden] { display: none; }
+  .shade-pop label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-2); font-weight: 700; margin-bottom: 10px; }
+  .shade-pop input[type="range"] { width: 100%; accent-color: var(--red); margin: 0; }
+  .shade-pop .ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); margin-top: 6px; }
+  .shade-pop .reset { margin-top: 10px; font-size: 13px; padding: 5px 12px; }
   .tile.blocked.nudge { filter: none; }
   .tile.blocked.nudge::before { opacity: .75; }
   .tile.free { filter: brightness(1.06) saturate(1.08); }
@@ -659,7 +682,16 @@
       <button id="btn-stats" class="icon" type="button" title="Your statistics" aria-label="Your statistics">
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="10" width="4" height="8" rx="1"/><rect x="8" y="4" width="4" height="14" rx="1"/><rect x="14" y="7" width="4" height="11" rx="1"/></svg>
       </button>
+      <button id="btn-shade" class="icon" type="button" title="Tile contrast" aria-label="Tile contrast" aria-expanded="false" aria-controls="shade-pop">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 2v12a6 6 0 0 1 0-12z"/></svg>
+      </button>
       <button id="btn-help" class="icon" type="button" title="How to play" aria-label="How to play">?</button>
+      <div class="shade-pop" id="shade-pop" role="group" aria-label="Tile contrast" hidden>
+        <label for="shade-range">Tile contrast</label>
+        <input type="range" id="shade-range" min="0" max="100" step="1" value="100" aria-valuetext="Maximum">
+        <div class="ends"><span>Original</span><span id="shade-val">Maximum</span></div>
+        <button type="button" class="reset" id="shade-reset">Reset</button>
+      </div>
     </nav>
   </header>
 
@@ -1420,7 +1452,7 @@ function dailySpec(n) {
 }
 
 // ---------- storage ----------
-const KEY = { daily: "mahgeong-daily-", results: "mahgeong-results", help: "mahgeong-help-seen", best: "mahgeong-best-", clock: "mahgeong-clock" };
+const KEY = { daily: "mahgeong-daily-", results: "mahgeong-results", help: "mahgeong-help-seen", best: "mahgeong-best-", clock: "mahgeong-clock", shade: "mahgeong-shade" };
 const LS = {
   get(k) { try { const v = localStorage.getItem(k); return v == null ? null : JSON.parse(v); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
@@ -2539,6 +2571,30 @@ $("btn-next").addEventListener("click", () => setTab("daily"));
 $("btn-stats").addEventListener("click", showStats);
 $("btn-stats-close").addEventListener("click", closeOverlay);
 $("btn-help").addEventListener("click", () => openSheet("sheet-help"));
+// Tile contrast: 0 = the original light dim on locked tiles, 100 = near-black (default). Saved like the clock choice.
+function applyShade(v) {
+  v = Math.max(0, Math.min(100, Math.round(+v)));
+  if (!Number.isFinite(v)) v = 100;
+  const t = v / 100, veil = .12 + .85 * t, root = document.documentElement;
+  root.style.setProperty("--veil", veil.toFixed(3));
+  root.style.setProperty("--veil-pct", Math.round(veil * 100) + "%");
+  root.style.setProperty("--flag-b", (1 - .45 * t).toFixed(3));
+  root.style.setProperty("--flag-s", (1 - .5 * t).toFixed(3));
+  root.classList.toggle("shade-soft", veil < .6);
+  $("shade-range").value = v;
+  const word = v >= 95 ? "Maximum" : v >= 70 ? "High" : v >= 40 ? "Medium" : v >= 10 ? "Low" : "Original";
+  $("shade-val").textContent = word;
+  $("shade-range").setAttribute("aria-valuetext", word);
+  return v;
+}
+function setShadeOpen(open) { $("shade-pop").hidden = !open; $("btn-shade").setAttribute("aria-expanded", String(open)); }
+$("btn-shade").addEventListener("click", e => { e.stopPropagation(); setShadeOpen($("shade-pop").hidden); });
+$("shade-pop").addEventListener("click", e => e.stopPropagation());
+document.addEventListener("click", () => setShadeOpen(false));
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("shade-pop").hidden) { setShadeOpen(false); $("btn-shade").focus(); } });
+$("shade-range").addEventListener("input", () => LS.set(KEY.shade, applyShade($("shade-range").value)));
+$("shade-reset").addEventListener("click", () => LS.set(KEY.shade, applyShade(100)));
+{ const saved = LS.get(KEY.shade); applyShade(typeof saved === "number" ? saved : 100); }
 $("btn-help-close").addEventListener("click", () => { LS.set(KEY.help, 1); closeOverlay(); });
 document.querySelector("#panel-practice .controls").addEventListener("change", e => {
   if (e.target.name === "deck") renderModes(modeVal());
