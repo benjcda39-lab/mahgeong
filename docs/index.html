@@ -86,6 +86,8 @@
     font-size: 16px;
     line-height: 1.4;
     min-height: 100vh;
+    /* Fast taps that turn into drags must not rubber-band the page or trigger pull-to-refresh. */
+    overscroll-behavior-y: none;
   }
   .wrap {
     max-width: 1240px;
@@ -122,6 +124,8 @@
   .tabs button { border: 0; border-radius: 0; border-right: 1px solid var(--line); padding: 8px 18px; background: transparent; font-weight: 600; }
   .tabs button:last-child { border-right: 0; }
   .tabs button[aria-selected="true"] { background: var(--ink); color: var(--panel); font-weight: 700; }
+  .seg.clock label { padding: 8px 14px; font-weight: 600; }
+  .seg.clock[hidden] { display: none; }
   button.icon { width: 38px; height: 38px; padding: 0; display: inline-grid; place-items: center; font-family: "Fraunces", Georgia, serif; font-weight: 900; font-size: 20px; }
   button.icon svg { width: 20px; height: 20px; fill: currentColor; }
 
@@ -251,8 +255,14 @@
     justify-content: center;
     padding: 8px 8px 12px;
     text-align: center;
-    transition: transform .12s ease, filter .2s ease, opacity .25s ease;
+    transition: transform .12s ease, filter .2s ease, opacity .25s ease, box-shadow .2s ease;
     -webkit-tap-highlight-color: transparent;
+    /* A touch that starts on a tile belongs to the game, never to page scroll. */
+    touch-action: none;
+    /* Speed taps must not select text or pop the iOS callout. */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
   /* Joins the exposed side and bottom edges at the rounded corner so a tile reads as one solid block. */
   .tile::after {
@@ -345,7 +355,73 @@
     margin-top: 6px;
   }
 
-  .tile.blocked { filter: brightness(.86) saturate(.85); cursor: default; }
+  /* Blocked tiles go near-black so the board reads bright = playable, dark = locked.
+     A ::before veil does the blacking-out, so the fade back to bright still animates
+     when a tile unlocks. Locked faces flip to muted light tones so they stay readable
+     for planning ahead; flag images dim separately since the veil sits beneath them. */
+  .tile::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: #171512;
+    opacity: 0;
+    transition: opacity .2s ease;
+    pointer-events: none;
+  }
+  .tile .kind { z-index: 1; }
+  .tile .cf, .tile .face { position: relative; z-index: 1; }
+  .tile .kind, .tile .face { transition: color .2s ease; }
+  .flag-img { transition: filter .2s ease; }
+  .tile.blocked {
+    cursor: default;
+    color: #B3AC9B;
+    box-shadow:
+      inset 0 0 0 1px rgba(0,0,0,.55),
+      inset 0 2px 0 rgba(255,255,255,.07),
+      inset 0 -3px 0 rgba(0,0,0,.5),
+      7px 8px 0 color-mix(in srgb, #171512 var(--veil-pct, 97%), var(--tile-edge)),
+      8px 10px 0 color-mix(in srgb, #0B0A08 var(--veil-pct, 97%), var(--tile-edge-2)),
+      12px 16px 18px var(--shadow);
+  }
+  .tile.blocked::before { opacity: var(--veil, .97); }
+  .tile.blocked::after { background: linear-gradient(160deg, color-mix(in srgb, #171512 var(--veil-pct, 97%), var(--tile-edge)) 25%, color-mix(in srgb, #0B0A08 var(--veil-pct, 97%), var(--tile-edge-2))); }
+  .tile.blocked .face { text-shadow: none; }
+  .tile.blocked .kind { color: #8A8374; }
+  .tile.blocked.k-capital .kind { color: #C07A6C; }
+  .tile.blocked.k-population .kind, .tile.blocked.k-population .face,
+  .tile.blocked.k-years .kind, .tile.blocked.k-years .face { color: #7E96B8; }
+  .tile.blocked.k-currency .kind, .tile.blocked.k-currency .face,
+  .tile.blocked.k-number .kind, .tile.blocked.k-number .face { color: #7FA98C; }
+  .tile.blocked.k-flag .kind { color: #B8A26E; }
+  .tile.blocked .flag-img { filter: brightness(var(--flag-b, .55)) saturate(var(--flag-s, .5)); }
+  .tile.blocked .flag-img.shaped { filter: brightness(var(--flag-b, .55)) saturate(var(--flag-s, .5)) drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
+  /* Soft shading (slider low): the veil is too light for pale text, so locked faces keep the normal dark ink. */
+  .shade-soft .tile.blocked { color: var(--tile-ink); }
+  .shade-soft .tile.blocked .face { text-shadow: 0 1px 0 rgba(255,255,255,.5); }
+  .shade-soft .tile.blocked .kind { color: var(--tile-ink-2); }
+  .shade-soft .tile.blocked.k-capital .kind { color: #B5301F; }
+  .shade-soft .tile.blocked.k-population .kind, .shade-soft .tile.blocked.k-population .face,
+  .shade-soft .tile.blocked.k-years .kind, .shade-soft .tile.blocked.k-years .face { color: #245A9E; }
+  .shade-soft .tile.blocked.k-currency .kind, .shade-soft .tile.blocked.k-currency .face,
+  .shade-soft .tile.blocked.k-number .kind, .shade-soft .tile.blocked.k-number .face { color: #2A7245; }
+  .shade-soft .tile.blocked.k-flag .kind { color: #C6962B; }
+
+  /* tile contrast control (accessibility) */
+  .topbar { position: relative; }
+  .shade-pop {
+    position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; width: min(300px, 100%);
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px 12px; box-shadow: 0 14px 34px rgba(0,0,0,.4);
+  }
+  .shade-pop[hidden] { display: none; }
+  .shade-pop label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-2); font-weight: 700; margin-bottom: 10px; }
+  .shade-pop input[type="range"] { width: 100%; accent-color: var(--red); margin: 0; }
+  .shade-pop .ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); margin-top: 6px; }
+  .shade-pop .reset { margin-top: 10px; font-size: 13px; padding: 5px 12px; }
+  .tile.blocked.nudge { filter: none; }
+  .tile.blocked.nudge::before { opacity: .75; }
+  .tile.free { filter: brightness(1.06) saturate(1.08); }
   .tile.free:hover { transform: translate(-2px, -3px); }
   .tile.selected {
     transform: translate(-4px, -6px);
@@ -481,6 +557,17 @@
   .sheet .btns { display: flex; gap: 8px; flex-wrap: wrap; }
 
   .share { display: grid; gap: 10px; }
+  .scoreboard { display: grid; gap: 10px; }
+  .scoreboard .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .scoreboard input { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); width: min(100%, 20ch); }
+  .scoreboard ol { margin: 0; padding-left: 2.5em; font-variant-numeric: tabular-nums; }
+  .scoreboard li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .scoreboard li span { color: var(--ink-2); }
+  .scoreboard li.you { color: var(--red); font-weight: 700; }
+  .scoreboard input, .scoreboard button { min-height: 40px; }
+  #scores-list { padding-left: 2.5em; font-variant-numeric: tabular-nums; }
+  #scores-list li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  #season-text { min-height: 210px; max-height: 38vh; overflow: auto; }
   .share-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   textarea.share-text {
     font: 14px/1.5 ui-monospace, Consolas, "SF Mono", monospace;
@@ -491,6 +578,7 @@
     color: var(--ink);
     resize: none;
     width: 100%;
+    box-sizing: border-box;
     display: block;
   }
   .countdown { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -567,6 +655,13 @@
   .v-score b { font-size: 1.5rem; }
   .v-score .dim { color: var(--ink-2); font-size: .9rem; }
 
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .chip {
+    font: inherit; padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg, #fff); color: var(--ink); cursor: pointer;
+  }
+  .chip:disabled { cursor: default; }
+  .chip.vetoed { opacity: .45; text-decoration: line-through; }
   /* Phones: give the board every pixel of width; portrait layouts scroll vertically instead of shrinking. */
   @media (max-width: 600px) {
     .wrap { padding-inline: 8px; gap: 10px; }
@@ -586,10 +681,24 @@
         <button id="tab-practice" type="button" role="tab" aria-selected="false">Practice</button>
         <button id="tab-versus" type="button" role="tab" aria-selected="false">2 Player</button>
       </div>
+      <div class="seg clock" role="radiogroup" aria-label="Clock" title="Play against the clock, or take your time">
+        <input type="radio" name="clock" id="clock-timed" value="timed" checked><label for="clock-timed">Timed</label>
+        <input type="radio" name="clock" id="clock-untimed" value="untimed"><label for="clock-untimed">Untimed</label>
+      </div>
+      <button id="btn-season" type="button">Season 1</button>
       <button id="btn-stats" class="icon" type="button" title="Your statistics" aria-label="Your statistics">
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="10" width="4" height="8" rx="1"/><rect x="8" y="4" width="4" height="14" rx="1"/><rect x="14" y="7" width="4" height="11" rx="1"/></svg>
       </button>
+      <button id="btn-shade" class="icon" type="button" title="Tile contrast" aria-label="Tile contrast" aria-expanded="false" aria-controls="shade-pop">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 2v12a6 6 0 0 1 0-12z"/></svg>
+      </button>
       <button id="btn-help" class="icon" type="button" title="How to play" aria-label="How to play">?</button>
+      <div class="shade-pop" id="shade-pop" role="group" aria-label="Tile contrast" hidden>
+        <label for="shade-range">Tile contrast</label>
+        <input type="range" id="shade-range" min="0" max="100" step="1" value="100" aria-valuetext="Maximum">
+        <div class="ends"><span>Original</span><span id="shade-val">Maximum</span></div>
+        <button type="button" class="reset" id="shade-reset">Reset</button>
+      </div>
     </nav>
   </header>
 
@@ -645,13 +754,14 @@
       </div>
     </div>
     <div class="actions">
+      <button id="btn-board-scores" type="button">High scores for this setup</button>
       <button id="btn-new" class="primary" type="button">New game</button>
     </div>
   </section>
 
   <section class="strip" id="panel-versus" hidden>
     <div class="versus-box">
-      <p class="how" style="margin:0">Two players share one board over the same Wi-Fi: every pair you clear is one your rival can't. No internet needed - one device runs <code>node lan/server.mjs</code> and both open the address it prints.</p>
+      <p class="how" style="margin:0">A head-to-head board for two players. In the waiting room you both tap Ready and the board unlocks. On your turn, the first free tile you tap is locked in - then tap its free match. A correct pair scores and keeps the turn; a wrong pick or a dead tile costs you a point, hands one to your rival, and passes the turn. A tied board goes to sudden death on fresh geography questions: one attempt each, first clean answer after a rival's miss wins. One device runs <code>node lan/server.mjs</code> and both open the address it prints.</p>
       <div class="row" id="v-setup">
         <input type="text" id="v-name" maxlength="24" placeholder="Your name" aria-label="Your name">
         <button id="v-create" class="primary" type="button">Host a game</button>
@@ -663,14 +773,16 @@
       <div class="v-score" id="v-score" hidden>
         <span><b id="v-me">0</b> <span class="dim">you</span></span>
         <span><b id="v-opp">0</b> <span class="dim" id="v-oppname">rival</span></span>
+        <span class="dim" id="v-round"></span>
         <span class="dim" id="v-left"></span>
+        <span class="dim" id="v-turn"></span>
       </div>
     </div>
   </section>
 
   <div class="stats">
     <div class="stat"><b id="st-left">0</b><span>pairs left</span></div>
-    <div class="stat"><b id="st-time">0:00</b><span>time</span></div>
+    <div class="stat"><b id="st-time">0:00</b><span id="st-time-l">time</span></div>
     <div class="stat"><b id="st-miss">0</b><span>misses</span></div>
     <div class="stat"><b id="st-hints">0</b><span>hints</span></div>
     <div class="stat"><b id="st-side">–</b><span id="st-side-l">streak</span></div>
@@ -693,6 +805,16 @@
         </div>
       </div>
     </div>
+    <div class="placard" id="v-lobby" hidden>
+      <div>
+        <h2 id="v-lobby-title">Waiting room</h2>
+        <p id="v-lobby-note"></p>
+        <div class="chips" id="v-cats"></div>
+        <div class="btns">
+          <button class="primary" id="v-ready" type="button">Ready</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="learned" id="learned">
@@ -709,7 +831,7 @@
     <h2 id="end-title">Board cleared</h2>
     <p class="sum" id="end-sum"></p>
     <div class="grid">
-      <div><b id="end-time">0:00</b><span>time</span></div>
+      <div><b id="end-time">0:00</b><span id="end-time-l">time</span></div>
       <div><b id="end-miss">0</b><span>misses</span></div>
       <div><b id="end-hints">0</b><span>hints</span></div>
       <div><b id="end-side">–</b><span id="end-side-l">streak</span></div>
@@ -722,6 +844,15 @@
           <button class="primary" id="btn-share" type="button">Copy result</button>
         </div>
         <textarea class="share-text" id="share-text" rows="5" readonly aria-label="Result text to share"></textarea>
+      </div>
+    </section>
+    <section id="end-scores">
+      <h3>High scores</h3>
+      <div class="scoreboard">
+        <p class="how">Times are reported by players. No account or anti-cheat checks yet.</p>
+        <div class="row"><input id="score-name" type="text" maxlength="24" placeholder="Your name" aria-label="Name for high scores"><button id="btn-submit-score" type="button">Add my score</button><button id="btn-view-scores" type="button">View high scores</button></div>
+        <p class="how" id="score-status" role="status">Scores are shared across players on this host.</p>
+        <ol id="score-list" hidden></ol>
       </div>
     </section>
     <section id="end-next">
@@ -737,6 +868,22 @@
       <button id="btn-end-practice" type="button">Practice a board</button>
       <button id="btn-close" type="button">Back to board</button>
     </div>
+  </div>
+
+  <div class="sheet" id="sheet-season" role="dialog" aria-labelledby="season-title" hidden>
+    <h2 id="season-title">Season summary</h2>
+    <p class="sum">Copy the standings before the season's database expires.</p>
+    <p class="how" id="season-status" role="status">Loading season...</p>
+    <textarea class="share-text" id="season-text" rows="8" readonly aria-label="Season summary to share" hidden></textarea>
+    <div class="btns"><button class="primary" id="btn-copy-season" type="button" hidden>Copy season summary</button><button id="btn-season-close" type="button">Close</button></div>
+  </div>
+
+  <div class="sheet" id="sheet-scores" role="dialog" aria-labelledby="scores-title" hidden>
+    <h2 id="scores-title">High scores</h2>
+    <p class="sum" id="scores-board"></p>
+    <p class="how" id="scores-status" role="status">Loading scores...</p>
+    <ol id="scores-list"></ol>
+    <div class="btns"><button id="btn-scores-close" type="button">Close</button></div>
   </div>
 
   <div class="sheet" id="sheet-stats" role="dialog" aria-labelledby="stats-title" hidden>
@@ -765,7 +912,7 @@
       <ul class="rules">
         <li><span class="k">1</span><span>Every country has one partner tile on the board: its <b>capital</b>, its <b>flag</b>, its <b>currency</b> or its <b>population</b>. Tap the two to clear them.</span></li>
         <li><span class="k">2</span><span>A tile is <b>free</b> when nothing sits on top of it and its left or right side is open. Shaded tiles are blocked until you uncover them.</span></li>
-        <li><span class="k">3</span><span>One puzzle a day, the same board for everyone. The clock runs while you play and pauses when you leave the tab.</span></li>
+        <li><span class="k">3</span><span>One puzzle a day, the same board for everyone. The clock runs while you play and pauses when you leave the tab. Rather not race? Switch to <b>Untimed</b> up top: you still get your streak and your grid, just no time.</span></li>
         <li><span class="k">4</span><span>Hints and shuffles are always there, but they show up in your result grid.</span></li>
       </ul>
       <div class="legend"><span><i></i>clean pair</span><span><i class="y"></i>needed a hint or shuffle</span><span><i class="r"></i>wrong pair first</span></div>
@@ -983,6 +1130,210 @@ const DATA = [
 ["ZM","Zambia","Lusaka",21.3,"Zambian kwacha","ZMW"],
 ["ZW","Zimbabwe","Harare",16.6,"Zimbabwe gold (ZiG)","ZWG"],
 ];
+
+// [ISO2 -> current leader] the person who actually runs the country: the prime minister in
+// parliamentary systems, otherwise the president, monarch or ruling figure (e.g. China's Xi Jinping,
+// not Premier Li Qiang). Checked against Wikipedia's "List of current heads of state and government"
+// on 25 September 2026; leaders change, so re-check that page when updating.
+const LEADERS = {
+  AF: "Hibatullah Akhundzada",
+  AL: "Edi Rama",
+  DZ: "Abdelmadjid Tebboune",
+  AD: "Xavier Espot Zamora",
+  AO: "João Lourenço",
+  AG: "Gaston Browne",
+  AR: "Javier Milei",
+  AM: "Nikol Pashinyan",
+  AU: "Anthony Albanese",
+  AT: "Christian Stocker",
+  AZ: "Ilham Aliyev",
+  BS: "Philip Davis",
+  BH: "Hamad bin Isa Al Khalifa",
+  BD: "Tarique Rahman",
+  BB: "Mia Mottley",
+  BY: "Alexander Lukashenko",
+  BE: "Bart De Wever",
+  BZ: "Johnny Briceño",
+  BJ: "Romuald Wadagni",
+  BT: "Tshering Tobgay",
+  BO: "Rodrigo Paz",
+  BA: "Borjana Krišto",
+  BW: "Duma Boko",
+  BR: "Lula",
+  BN: "Hassanal Bolkiah",
+  BG: "Rumen Radev",
+  BF: "Ibrahim Traoré",
+  BI: "Évariste Ndayishimiye",
+  CV: "Francisco Carvalho",
+  KH: "Hun Manet",
+  CM: "Paul Biya",
+  CA: "Mark Carney",
+  CF: "Faustin-Archange Touadéra",
+  TD: "Mahamat Déby",
+  CL: "José Antonio Kast",
+  CN: "Xi Jinping",
+  CO: "Abelardo de la Espriella",
+  KM: "Azali Assoumani",
+  CG: "Denis Sassou Nguesso",
+  CD: "Félix Tshisekedi",
+  CR: "Laura Fernández",
+  CI: "Alassane Ouattara",
+  HR: "Andrej Plenković",
+  CU: "Miguel Díaz-Canel",
+  CY: "Nikos Christodoulides",
+  CZ: "Andrej Babiš",
+  DK: "Mette Frederiksen",
+  DJ: "Ismaïl Omar Guelleh",
+  DM: "Roosevelt Skerrit",
+  DO: "Luis Abinader",
+  EC: "Daniel Noboa",
+  EG: "Abdel Fattah el-Sisi",
+  SV: "Nayib Bukele",
+  GQ: "Teodoro Obiang Nguema Mbasogo",
+  ER: "Isaias Afwerki",
+  EE: "Kristen Michal",
+  SZ: "Mswati III",
+  ET: "Abiy Ahmed",
+  FJ: "Sitiveni Rabuka",
+  FI: "Petteri Orpo",
+  FR: "Emmanuel Macron",
+  GA: "Brice Oligui Nguema",
+  GM: "Adama Barrow",
+  GE: "Irakli Kobakhidze",
+  DE: "Friedrich Merz",
+  GH: "John Mahama",
+  GR: "Kyriakos Mitsotakis",
+  GD: "Dickon Mitchell",
+  GT: "Bernardo Arévalo",
+  GN: "Mamady Doumbouya",
+  GW: "Horta Inta-A Na Man",
+  GY: "Irfaan Ali",
+  HT: "Alix Didier Fils-Aimé",
+  HN: "Nasry Asfura",
+  HU: "Péter Magyar",
+  IS: "Kristrún Frostadóttir",
+  IN: "Narendra Modi",
+  ID: "Prabowo Subianto",
+  IR: "Mojtaba Khamenei",
+  IQ: "Ali al-Zaidi",
+  IE: "Micheál Martin",
+  IL: "Benjamin Netanyahu",
+  IT: "Giorgia Meloni",
+  JM: "Andrew Holness",
+  JP: "Sanae Takaichi",
+  JO: "Abdullah II",
+  KZ: "Kassym-Jomart Tokayev",
+  KE: "William Ruto",
+  KI: "Taneti Maamau",
+  XK: "Albin Kurti",
+  KW: "Mishal Al-Ahmad",
+  KG: "Sadyr Japarov",
+  LA: "Thongloun Sisoulith",
+  LV: "Andris Kulbergs",
+  LB: "Nawaf Salam",
+  LS: "Sam Matekane",
+  LR: "Joseph Boakai",
+  LY: "Abdul Hamid Dbeibeh",
+  LI: "Hans-Adam II",
+  LT: "Mindaugas Sinkevičius",
+  LU: "Luc Frieden",
+  MG: "Michael Randrianirina",
+  MW: "Peter Mutharika",
+  MY: "Anwar Ibrahim",
+  MV: "Mohamed Muizzu",
+  ML: "Assimi Goïta",
+  MT: "Robert Abela",
+  MH: "Hilda Heine",
+  MR: "Mohamed Ould Ghazouani",
+  MU: "Navin Ramgoolam",
+  MX: "Claudia Sheinbaum",
+  FM: "Wesley Simina",
+  MD: "Maia Sandu",
+  MC: "Albert II",
+  MN: "Nyam-Osoryn Uchral",
+  ME: "Milojko Spajić",
+  MA: "Mohammed VI",
+  MZ: "Daniel Chapo",
+  MM: "Min Aung Hlaing",
+  NA: "Netumbo Nandi-Ndaitwah",
+  NR: "David Adeang",
+  NP: "Balen Shah",
+  NL: "Rob Jetten",
+  NZ: "Christopher Luxon",
+  NI: "Daniel Ortega",
+  NE: "Abdourahamane Tiani",
+  NG: "Bola Tinubu",
+  KP: "Kim Jong Un",
+  MK: "Hristijan Mickoski",
+  NO: "Jonas Gahr Støre",
+  OM: "Haitham bin Tariq",
+  PK: "Shehbaz Sharif",
+  PW: "Surangel Whipps Jr.",
+  PS: "Mahmoud Abbas",
+  PA: "José Raúl Mulino",
+  PG: "James Marape",
+  PY: "Santiago Peña",
+  PE: "Keiko Fujimori",
+  PH: "Bongbong Marcos",
+  PL: "Donald Tusk",
+  PT: "Luís Montenegro",
+  QA: "Tamim bin Hamad",
+  RO: "Ilie Bolojan",
+  RU: "Vladimir Putin",
+  RW: "Paul Kagame",
+  KN: "Terrance Drew",
+  LC: "Philip J. Pierre",
+  VC: "Godwin Friday",
+  WS: "Laʻauli Leuatea Schmidt",
+  SM: "Alice Mina & Vladimiro Selva",
+  ST: "Américo Ramos",
+  SA: "Mohammed bin Salman",
+  SN: "Bassirou Diomaye Faye",
+  RS: "Aleksandar Vučić",
+  SC: "Patrick Herminie",
+  SL: "Julius Maada Bio",
+  SG: "Lawrence Wong",
+  SK: "Robert Fico",
+  SI: "Janez Janša",
+  SB: "Matthew Wale",
+  SO: "Hassan Sheikh Mohamud",
+  ZA: "Cyril Ramaphosa",
+  KR: "Lee Jae Myung",
+  SS: "Salva Kiir",
+  ES: "Pedro Sánchez",
+  LK: "Anura Kumara Dissanayake",
+  SD: "Abdel Fattah al-Burhan",
+  SR: "Jennifer Geerlings-Simons",
+  SE: "Ulf Kristersson",
+  CH: "Guy Parmelin",
+  SY: "Ahmed al-Sharaa",
+  TW: "Lai Ching-te",
+  TJ: "Emomali Rahmon",
+  TZ: "Samia Suluhu Hassan",
+  TH: "Anutin Charnvirakul",
+  TL: "Xanana Gusmão",
+  TG: "Faure Gnassingbé",
+  TO: "Fatafehi Fakafānua",
+  TT: "Kamla Persad-Bissessar",
+  TN: "Kais Saied",
+  TR: "Recep Tayyip Erdoğan",
+  TM: "Serdar Berdimuhamedow",
+  TV: "Feleti Teo",
+  UG: "Yoweri Museveni",
+  UA: "Volodymyr Zelenskyy",
+  AE: "Mohamed bin Zayed",
+  GB: "Andy Burnham",
+  US: "Donald Trump",
+  UY: "Yamandú Orsi",
+  UZ: "Shavkat Mirziyoyev",
+  VU: "Jotham Napat",
+  VA: "Leo XIV",
+  VE: "Nicolás Maduro",
+  VN: "Tô Lâm",
+  YE: "Rashad al-Alimi",
+  ZM: "Hakainde Hichilema",
+  ZW: "Emmerson Mnangagwa"
+};
 // Regions for the practice tab (UN geoscheme, with Cyprus and Russia in Europe and the Caucasus in Asia).
 const REGIONS = {
   africa: "DZ AO BJ BW BF BI CV CM CF TD KM CG CD CI DJ EG GQ ER SZ ET GA GM GH GN GW KE LS LR LY MG MW ML MR MU MA MZ NA NE NG RW ST SN SC SL SO ZA SS SD TZ TG TN UG ZM ZW",
@@ -1063,14 +1414,14 @@ const PRESIDENTS = [
 
 const BY_CODE = Object.fromEntries([...DATA, ...STATES, ...PRESIDENTS].map(c => [c[0], c]));
 const KINDS = ["capital", "flag", "currency", "population"];
-const KIND_LABEL = { name: "Country", capital: "Capital", flag: "Flag", currency: "Currency", population: "Population", years: "In office", number: "Number" };
+const KIND_LABEL = { name: "Country", capital: "Capital", flag: "Flag", currency: "Currency", population: "Population", leader: "Leader", years: "In office", number: "Number" };
 const MODES = ["capital", "flag", "currency", "population", "mix"];
-const MODE_NAME = { capital: "Capitals", flag: "Flags", currency: "Currencies", population: "Populations", years: "Years in office", number: "Numbers", mix: "Mixed clues" };
+const MODE_NAME = { capital: "Capitals", flag: "Flags", currency: "Currencies", population: "Populations", leader: "Leaders", years: "Years in office", number: "Numbers", mix: "Mixed clues" };
 // Decks for the practice tab. The daily always uses the world deck, whole world.
 const DECKS = {
-  world: { name: "World", noun: "countries", nameLabel: "Country", kinds: KINDS, hasFlag: true,
+  world: { name: "World", noun: "countries", nameLabel: "Country", kinds: [...KINDS, "leader"], hasFlag: true,
     pool: region => region === "all" ? DATA : DATA.filter(c => REGION_OF[c[0]] === region),
-    note: "197 countries in the deck. Populations are 2024 estimates; capitals follow the seat of government where a country has more than one." },
+    note: "197 countries in the deck. Populations are 2024 estimates; capitals follow the seat of government where a country has more than one. Leaders are current as of September 2026." },
   states: { name: "US states", noun: "states", nameLabel: "State", kinds: ["capital", "flag"], hasFlag: true,
     pool: () => STATES,
     note: "All 50 states. Flags are the current official designs, including the 2024 Minnesota and Utah flags." },
@@ -1120,7 +1471,7 @@ function dailySpec(n) {
 }
 
 // ---------- storage ----------
-const KEY = { daily: "mahgeong-daily-", results: "mahgeong-results", help: "mahgeong-help-seen", best: "mahgeong-best-" };
+const KEY = { daily: "mahgeong-daily-", results: "mahgeong-results", help: "mahgeong-help-seen", best: "mahgeong-best-", clock: "mahgeong-clock", shade: "mahgeong-shade" };
 const LS = {
   get(k) { try { const v = localStorage.getItem(k); return v == null ? null : JSON.parse(v); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
@@ -1178,12 +1529,14 @@ function valueOf(c, kind) {
     case "flag": return flagOf(c[0]);
     case "currency": return currencyShort(c[4]);
     case "population": return popText(c[3]);
+    case "leader": return LEADERS[c[0]];
     case "years": return termsText(c);
     case "number": return ordinalsText(c);
   }
 }
 function uniqKey(c, kind) { return kind === "currency" ? currencyShort(c[4]).toLowerCase() : valueOf(c, kind); }
 function fmtTime(s) { return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+function fmtPrecise(ms) { return fmtTime(Math.floor(ms / 1000)) + "." + String(ms % 1000).padStart(3, "0"); }
 function pad2(n) { return String(n).padStart(2, "0"); }
 function factFor(c, kind) {
   const n = c[1];
@@ -1192,6 +1545,7 @@ function factFor(c, kind) {
     case "flag": return `<span class="flag">${flagImg(c[0])}</span> is the flag of <b>${n}</b>.`;
     case "currency": return `<b>${n}</b> uses the <b>${c[4]}</b> (${c[5]}).`;
     case "population": return `<b>${n}</b> is home to about <b>${popText(c[3]).replace("≈ ", "")}</b> people.`;
+    case "leader": return `<b>${LEADERS[c[0]]}</b> is the current leader of <b>${n}</b>.`;
     case "years": case "number":
       return `<b>${n}</b> ${c[2].some(t => t[1] == null) ? "is" : "was"} the <b>${ordinalsText(c)}</b> president, in office <b>${termsText(c)}</b> (${c[4]}).`;
   }
@@ -1321,22 +1675,23 @@ const $ = id => document.getElementById(id);
 const board = $("board"), viewport = $("viewport");
 
 function baseState(extra) {
-  return { deck: "world", region: "all", layout: "wide", mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
+  return { deck: "world", region: "all", layout: "wide", timed: true, mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, elapsedMs: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
 }
 function snapshotOf(s) {
-  const { kind, n, deck, region, layout, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag } = s;
-  return { kind, n, deck, region, layout, mode, size, deal, mistakes, hints, shuffles, elapsed, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
+  const { kind, n, deck, region, layout, timed, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag } = s;
+  return { kind, n, deck, region, layout, timed, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
 }
 function saveDaily() { if (state && state.kind === "daily") LS.set(KEY.daily + state.n, snapshotOf(state)); }
 
 function newPractice(deck, region, mode, size, deal) {
+  stopTimer();
   const d = DECKS[deck];
   const tiles = makeTiles(mode, size, deal, d.pool(region), d.kinds);
   let layout = "wide";
   if (wantPortrait() && relayout(tiles, PORTRAIT[size], deal)) layout = "portrait";
-  state = baseState({ kind: "practice", deck, region, layout, mode, size, deal, tiles });
-  stopTimer();
+  state = baseState({ kind: "practice", deck, region, layout, timed: clockVal(), mode, size, deal, tiles });
   mount();
+  syncClock();
   $("placard").hidden = true;
   const what = d.noun.replace(/ies$/, "y").replace(/s$/, "");
   setFact("How to play", deal === "classic"
@@ -1346,10 +1701,11 @@ function newPractice(deck, region, mode, size, deal) {
 }
 
 function loadDaily() {
+  stopTimer();
   const n = todayNumber(), spec = dailySpec(n);
   const saved = LS.get(KEY.daily + n);
   if (saved && saved.tiles && saved.tiles.length) {
-    state = { ...baseState(), ...saved, kind: "daily", n, running: false, sel: -1 };
+    state = { ...baseState(), ...saved, elapsedMs: saved.elapsedMs ?? saved.elapsed * 1000, legacyTime: saved.legacyTime || (saved.elapsedMs == null && saved.done), kind: "daily", n, running: false, sel: -1 };
   } else {
     rng = mulberry32(n * 1000003 + 7);
     let tiles, layout = "wide";
@@ -1359,9 +1715,9 @@ function loadDaily() {
       rng = mulberry32(n * 7919 + 3);
       try { if (relayout(tiles, PORTRAIT[spec.size])) layout = "portrait"; } finally { rng = Math.random; }
     }
-    state = baseState({ kind: "daily", n, layout, mode: spec.mode, size: spec.size, deal: "fair", tiles });
+    state = baseState({ kind: "daily", n, layout, timed: clockVal(), mode: spec.mode, size: spec.size, deal: "fair", tiles });
   }
-  stopTimer();
+  syncClock();
   $("d-no").textContent = "No. " + n;
   $("d-date").textContent = dateOfNumber(n).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   $("d-mode").textContent = MODE_NAME[state.mode] + " · " + state.size + " pairs";
@@ -1372,7 +1728,7 @@ function loadDaily() {
   } else {
     $("placard").hidden = true;
     setFact(saved ? "Resumed" : "No. " + n, saved
-      ? "Your board is back where you left it. The clock starts again on your next tap."
+      ? (state.timed ? "Your board is back where you left it. The clock starts again on your next tap." : "Your board is back where you left it. No clock on this one.")
       : "Tap two free tiles that belong to the same country. A tile is free when nothing sits on top of it and its left or right side is open. Shaded tiles are blocked.");
   }
 }
@@ -1389,6 +1745,9 @@ function fitText(el, isFlag) {
   }
 }
 function fitAllText() { if (state) state.tiles.forEach(t => t.el && fitText(t.el.querySelector(".face"), t.kind === "flag")); }
+
+// Timestamp of the last pointer press that already selected a tile, so its trailing click is ignored.
+let lastPressAt = -1e9;
 
 function mount() {
   board.innerHTML = "";
@@ -1418,7 +1777,10 @@ function mount() {
     if (showFlag) el.classList.add("has-flag");
     el.innerHTML = `<span class="kind">${t.kind === "name" ? deck.nameLabel : KIND_LABEL[t.kind]}</span>${showFlag ? `<span class="cf">${flagImg(c[0])}</span>` : ""}<span class="face">${shown}</span>`;
     el.setAttribute("aria-label", (t.kind === "name" ? deck.nameLabel : KIND_LABEL[t.kind]) + ": " + face);
-    el.addEventListener("click", () => onTile(i));
+    // Select on finger/mouse down - release timing decides records. Keyboard and screen-reader
+    // activations arrive as a click with no pointerdown, so those still go through click.
+    el.addEventListener("pointerdown", e => { if (e.button) return; lastPressAt = e.timeStamp; onTile(i); });
+    el.addEventListener("click", e => { if (e.timeStamp - lastPressAt > 600) onTile(i); });
     el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTile(i); } });
     if (!t.alive) el.classList.add("gone");
     t.el = el;
@@ -1455,13 +1817,14 @@ function refresh() {
   $("st-left").textContent = aliveTiles().length / 2;
   $("st-miss").textContent = state.mistakes;
   $("st-hints").textContent = state.hints;
-  $("st-time").textContent = fmtTime(state.elapsed);
+  $("st-time").textContent = state.timed ? fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : "–";
+  $("st-time-l").textContent = state.timed ? "time" : "untimed";
   if (state.kind === "daily") {
     $("st-side").textContent = computeStats().streak;
     $("st-side-l").textContent = "streak";
   } else {
     const best = getBest();
-    $("st-side").textContent = best == null ? "–" : fmtTime(best);
+    $("st-side").textContent = best == null ? "–" : fmtPrecise(best);
     $("st-side-l").textContent = "best";
   }
   $("btn-hint").disabled = state.done;
@@ -1475,15 +1838,29 @@ function setFact(stamp, html, stuck = false) {
 }
 
 function startTimer() {
-  if (state.running || state.done || state.kind === "versus") return;
+  if (state.running || state.done || state.kind === "versus" || !state.timed) return;
+  state.elapsedMs = state.elapsedMs ?? state.elapsed * 1000;
   state.running = true;
-  timer = setInterval(() => {
-    state.elapsed++;
-    $("st-time").textContent = fmtTime(state.elapsed);
-    if (state.kind === "daily" && state.elapsed % 5 === 0) saveDaily();
-  }, 1000);
+  // performance.now measures active time without interval drift. Pauses and restores
+  // retain accumulated milliseconds, without claiming old whole-second runs were exact.
+  const start = performance.now(), previous = state.elapsedMs;
+  let savedAt = Math.floor(previous / 5000);
+  const tick = () => {
+    state.elapsedMs = previous + Math.max(0, Math.floor(performance.now() - start));
+    state.elapsed = Math.floor(state.elapsedMs / 1000);
+    $("st-time").textContent = fmtPrecise(state.elapsedMs);
+    if (state.kind === "daily" && Math.floor(state.elapsedMs / 5000) > savedAt) {
+      savedAt = Math.floor(state.elapsedMs / 5000); saveDaily();
+    }
+  };
+  timer = setInterval(tick, 30);
+  state.clockTick = tick;
 }
-function stopTimer() { clearInterval(timer); timer = null; if (state) state.running = false; }
+function stopTimer() {
+  if (state?.running) state.clockTick?.();
+  clearInterval(timer); timer = null;
+  if (state) { state.running = false; delete state.clockTick; }
+}
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && state && state.running) {
     stopTimer(); saveDaily();
@@ -1594,7 +1971,7 @@ function bestKey() {
   const scope = (state.deck && state.deck !== "world" ? state.deck + "-" : "") + (state.region && state.region !== "all" ? state.region + "-" : "");
   return KEY.best + scope + state.mode + "-" + state.size + (state.deal === "classic" ? "-classic" : "");
 }
-function getBest() { try { const v = localStorage.getItem(bestKey()); return v == null ? null : +v; } catch { return null; } }
+function getBest() { try { const v = localStorage.getItem(bestKey() + "-ms"); return v == null ? null : +v; } catch { return null; } }
 
 function computeStats() {
   const res = LS.get(KEY.results) || {};
@@ -1604,16 +1981,17 @@ function computeStats() {
   for (const d of days) { cur = (prev != null && d === prev + 1) ? cur + 1 : 1; max = Math.max(max, cur); prev = d; }
   const today = todayNumber();
   const streak = (prev === today || prev === today - 1) ? cur : 0;
-  const times = days.map(d => res[d].t);
-  const avg = played ? Math.round(times.reduce((a, b) => a + b, 0) / played) : null;
-  const best = played ? Math.min(...times) : null;
+  const times = days.map(d => res[d].t).filter(t => typeof t === "number");
+  const timed = times.length;
+  const avg = timed ? Math.round(times.reduce((a, b) => a + b, 0) / timed) : null;
+  const best = timed ? Math.min(...times) : null;
   const buckets = [["Under 2:00", 0, 120], ["2:00 to 3:59", 120, 240], ["4:00 to 5:59", 240, 360], ["6:00 to 9:59", 360, 600], ["10:00 and over", 600, Infinity]];
   const dist = buckets.map(([label, lo, hi]) => ({ label, lo, hi, n: times.filter(t => t >= lo && t < hi).length }));
-  return { played, streak, max, avg, best, dist, res };
+  return { played, timed, streak, max, avg, best, dist, res };
 }
 function recordResult() {
   const res = LS.get(KEY.results) || {};
-  if (!res[state.n]) res[state.n] = { t: state.elapsed, m: state.mistakes, h: state.hints, s: state.shuffles, marks: state.marks.join(""), mode: state.mode };
+  if (!res[state.n]) res[state.n] = { t: state.timed ? state.elapsed : null, ms: state.timed ? state.elapsedMs : null, m: state.mistakes, h: state.hints, s: state.shuffles, marks: state.marks.join(""), mode: state.mode };
   LS.set(KEY.results, res);
 }
 const MARK_EMOJI = { g: "🟩", y: "🟨", r: "🟥" };
@@ -1625,10 +2003,19 @@ function markRows(marks) {
 function renderMarks(el, marks) {
   el.innerHTML = marks.map(m => `<i class="${m}"></i>`).join("");
 }
+// The daily leads with its puzzle number; a practice board has none, so it
+// names the clue type, deck size and scope instead (a speed run means
+// nothing without the board size).
+function shareHead() {
+  if (state.kind === "daily") return `${NAME} No. ${state.n} · ${MODE_NAME[state.mode]}`;
+  const d = deckOf(state);
+  const scope = state.deck === "world" && state.region !== "all" ? ` from ${REGION_NAME[state.region]}` : "";
+  return `${NAME} practice · ${MODE_NAME[state.mode]} · ${state.size} ${d.noun}${scope}${state.deal === "classic" ? " · classic deal" : ""}`;
+}
 function shareText() {
   const lines = [
-    `${NAME} No. ${state.n} · ${MODE_NAME[state.mode]}`,
-    `⏱ ${fmtTime(state.elapsed)} · ${state.mistakes} ${state.mistakes === 1 ? "miss" : "misses"} · ${state.hints} ${state.hints === 1 ? "hint" : "hints"}`,
+    shareHead(),
+    `⏱ ${state.timed ? fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : "untimed"} · ${state.mistakes} ${state.mistakes === 1 ? "miss" : "misses"} · ${state.hints} ${state.hints === 1 ? "hint" : "hints"}`,
     ...markRows(state.marks).map(r => r.map(m => MARK_EMOJI[m]).join("")),
   ];
   return lines.join("\n");
@@ -1671,14 +2058,14 @@ function startCountdown() {
 
 function showPlacard() {
   $("placard").hidden = false;
-  $("pl-title").textContent = "No. " + state.n + " cleared in " + fmtTime(state.elapsed);
+  $("pl-title").textContent = "No. " + state.n + (state.timed ? " cleared in " + fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : " cleared, untimed");
   $("pl-sum").textContent = `${MODE_NAME[state.mode]} · ${state.mistakes} ${state.mistakes === 1 ? "miss" : "misses"} · ${state.hints} ${state.hints === 1 ? "hint" : "hints"}`;
   renderMarks($("pl-marks"), state.marks);
 }
 
 function finish() {
-  state.done = true;
   stopTimer();
+  state.done = true;
   const daily = state.kind === "daily";
   let best = null, isNew = false;
   if (daily) {
@@ -1687,7 +2074,7 @@ function finish() {
     showPlacard();
   } else {
     best = getBest();
-    if (best == null || state.elapsed < best) { best = state.elapsed; isNew = true; try { localStorage.setItem(bestKey(), String(best)); } catch {} }
+    if (state.timed && (best == null || state.elapsedMs < best)) { best = state.elapsedMs; isNew = true; try { localStorage.setItem(bestKey() + "-ms", String(best)); } catch {} }
   }
   refresh();
   showEndSheet(isNew, best);
@@ -1695,9 +2082,9 @@ function finish() {
 
 function showEndSheet(isNew, best) {
   const daily = state.kind === "daily";
-  const modeName = { capital: "capitals", flag: "flags", currency: "currencies", population: "populations", years: "years in office", number: "numbers", mix: "a mix of clues" }[state.mode];
+  const modeName = { capital: "capitals", flag: "flags", currency: "currencies", population: "populations", leader: "leaders", years: "years in office", number: "numbers", mix: "a mix of clues" }[state.mode];
   if (daily) {
-    $("end-title").textContent = "No. " + state.n + " cleared in " + fmtTime(state.elapsed);
+    $("end-title").textContent = "No. " + state.n + (state.timed ? " cleared in " + fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : " cleared");
     $("end-sum").textContent = `${MODE_NAME[state.mode]} · ${dateOfNumber(state.n).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}. Same board as everyone else today.`;
     const st = computeStats();
     $("end-side").textContent = st.streak;
@@ -1710,15 +2097,20 @@ function showEndSheet(isNew, best) {
     $("end-title").textContent = isNew ? "Board cleared. New best!" : "Board cleared";
     const d = deckOf(state);
     const where = state.deck === "world" && state.region !== "all" ? ` from ${REGION_NAME[state.region]}` : "";
-    $("end-sum").textContent = `${state.size} ${d.noun}${where} matched to ${modeName} in ${fmtTime(state.elapsed)}${state.deal === "classic" ? " on a classic random deal" : ""}.`;
-    $("end-side").textContent = best == null ? "–" : fmtTime(best);
+    $("end-sum").textContent = `${state.size} ${d.noun}${where} matched to ${modeName}${state.timed ? " in " + fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : ", untimed"}${state.deal === "classic" ? " on a classic random deal" : ""}.`;
+    $("end-side").textContent = best == null ? "–" : fmtPrecise(best);
     $("end-side-l").textContent = "best";
+    renderMarks($("end-marks"), state.marks);
+    $("share-text").value = shareText();
+    $("share-text").rows = 2 + markRows(state.marks).length;
     clearInterval(cdTimer);
   }
-  $("end-time").textContent = fmtTime(state.elapsed);
+  $("end-time").textContent = state.timed ? fmtPrecise(state.elapsedMs ?? state.elapsed * 1000) : "–";
+  $("end-time-l").textContent = state.timed ? "time" : "untimed";
   $("end-miss").textContent = state.mistakes;
   $("end-hints").textContent = state.hints;
-  $("end-share").hidden = !daily;
+  $("end-share").hidden = false;   // practice results are shareable too
+  setupScoreResult();
   $("end-next").hidden = !daily;
   $("btn-again").hidden = daily;
   $("btn-end-practice").hidden = !daily;
@@ -1736,24 +2128,26 @@ function showStats() {
   $("s-played").textContent = st.played;
   $("s-streak").textContent = st.streak;
   $("s-max").textContent = st.max;
-  $("s-avg").textContent = st.avg == null ? "–" : fmtTime(st.avg);
-  $("s-best").textContent = st.best == null ? "–" : fmtTime(st.best);
+  const timedMs = Object.values(st.res).filter(r => typeof r.t === "number").map(r => r.ms ?? r.t * 1000);
+  $("s-avg").textContent = timedMs.length ? fmtPrecise(Math.round(timedMs.reduce((a, b) => a + b, 0) / timedMs.length)) : "–";
+  $("s-best").textContent = timedMs.length ? fmtPrecise(Math.min(...timedMs)) : "–";
   const maxN = Math.max(1, ...st.dist.map(d => d.n));
-  const mine = state && state.kind === "daily" && state.done ? state.elapsed : null;
+  const mine = state && state.kind === "daily" && state.done && state.timed ? state.elapsed : null;
   $("s-bars").innerHTML = st.dist.map(d => {
     const me = mine != null && mine >= d.lo && mine < d.hi;
     const w = d.n ? Math.max(8, Math.round(100 * d.n / maxN)) : 0;
     return `<div class="bar${d.n ? "" : " empty"}"><span>${d.label}</span><b class="${me ? "me" : ""}" style="width:${d.n ? w + "%" : "26px"}">${d.n}</b></div>`;
   }).join("");
+  const untimed = st.played - st.timed;
   $("stats-sum").textContent = st.played
-    ? `${st.played} daily ${st.played === 1 ? "puzzle" : "puzzles"} cleared. Practice boards don't count.`
+    ? `${st.played} daily ${st.played === 1 ? "puzzle" : "puzzles"} cleared${untimed ? `, ${untimed} of them untimed (times below are for timed days only)` : ""}. Practice boards don't count.`
     : "No daily puzzles cleared yet. Practice boards don't count.";
   openSheet("sheet-stats");
 }
 
 // ---------- overlay ----------
 function openSheet(id) {
-  ["sheet-end", "sheet-stats", "sheet-help"].forEach(s => { $(s).hidden = s !== id; });
+  ["sheet-end", "sheet-stats", "sheet-help", "sheet-scores", "sheet-season"].forEach(s => { $(s).hidden = s !== id; });
   $("overlay").hidden = false;
 }
 function closeOverlay() { $("overlay").hidden = true; clearInterval(cdTimer); }
@@ -1761,10 +2155,141 @@ $("overlay").addEventListener("click", e => { if (e.target === $("overlay")) clo
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("overlay").hidden) closeOverlay(); });
 
 
+// ---------- friendly cross-player leaderboard ----------
+// A random browser-local ID only deduplicates this device's submissions. It is not
+// authentication. Results and times are self-reported, so treat this as a friendly table.
+const SCORE_ID_KEY = "mahgeong-score-player-id", SCORE_NAME_KEY = "mahgeong-score-name";
+function scoreBoard(s) {
+  if (s.kind === "daily") return { kind: "daily", n: s.n };
+  return { kind: "practice", deck: s.deck, region: s.region, mode: s.mode, size: s.size, deal: s.deal };
+}
+function playerId() {
+  let id = localStorage.getItem(SCORE_ID_KEY);
+  if (!id) { id = crypto.randomUUID(); localStorage.setItem(SCORE_ID_KEY, id); }
+  return id;
+}
+function scoreRows(target, scores) {
+  const el = $(target);
+  el.replaceChildren();
+  scores.forEach(r => {
+    const li = document.createElement("li");
+    li.classList.toggle("you", !!r.you);
+    // textContent prevents player names from becoming HTML.
+    li.textContent = `${r.name}${r.you ? " (you)" : ""} · ${fmtPrecise(r.milliseconds)} · ${r.mistakes} ${r.mistakes === 1 ? "miss" : "misses"}`;
+    const extra = document.createElement("span");
+    extra.textContent = ` · ${r.hints} ${r.hints === 1 ? "hint" : "hints"} · ${r.shuffles} ${r.shuffles === 1 ? "shuffle" : "shuffles"}`;
+    li.append(extra); el.append(li);
+  });
+  el.hidden = false;
+}
+async function scoreRequest(board, result) {
+  const path = "/api/scores";
+  const response = await fetch(result ? path : `${path}?board=${encodeURIComponent(JSON.stringify(board))}`,
+    result ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(result) } : {});
+  if (!response.ok) throw new Error(response.status === 503 || response.status === 404 ? "High scores aren't available on this host yet." : "Could not load high scores.");
+  return response.json();
+}
+function setupScoreResult() {
+  $("score-name").value = localStorage.getItem(SCORE_NAME_KEY) || "";
+  $("score-status").textContent = !state.timed
+    ? "Untimed boards don't go on the high scores. Play with the clock on to post a time."
+    : state.legacyTime
+    ? "This older result was timed only to whole seconds. Play again for a precise score."
+    : "Add your score if you want your name on this board's high scores.";
+  $("score-list").hidden = true;
+  $("score-list").replaceChildren();
+  $("btn-submit-score").disabled = !!state.legacyTime || !state.timed;
+}
+async function viewEndScores() {
+  const board = scoreBoard(state);
+  $("score-status").textContent = "Loading scores...";
+  try {
+    const data = await scoreRequest(board);
+    if (JSON.stringify(board) !== JSON.stringify(scoreBoard(state))) return;
+    scoreRows("score-list", data.scores);
+    $("score-status").textContent = data.scores.length ? "Top 10 for this board." : "No scores yet for this board.";
+  } catch (e) { $("score-status").textContent = e.message; }
+}
+async function submitEndScore() {
+  const name = $("score-name").value.trim();
+  if (!name || [...name].length > 24 || /[\x00-\x1f\x7f]/.test(name)) { $("score-status").textContent = "Enter a name (up to 24 characters)."; return; }
+  if (!state.done || state.legacyTime || !state.timed) return;
+  const board = scoreBoard(state);
+  const result = { board, playerId: playerId(), name, milliseconds: Math.max(1, state.elapsedMs ?? state.elapsed * 1000), mistakes: state.mistakes, hints: state.hints, shuffles: state.shuffles };
+  $("btn-submit-score").disabled = true;
+  $("score-status").textContent = "Saving score...";
+  try {
+    const data = await scoreRequest(board, result);
+    if (JSON.stringify(board) !== JSON.stringify(scoreBoard(state))) return;
+    localStorage.setItem(SCORE_NAME_KEY, name);
+    scoreRows("score-list", data.scores);
+    $("score-status").textContent = data.mine ? `Saved. Your best for this board is #${data.mine.rank}.` : "Saved.";
+  } catch (e) { $("score-status").textContent = e.message; }
+  finally { $("btn-submit-score").disabled = false; }
+}
+async function showBoardScores() {
+  const board = { kind: "practice", deck: deckVal(), region: regionVal(), mode: modeVal(), size: sizeVal(), deal: dealVal() };
+  $("scores-board").textContent = `${MODE_NAME[board.mode]} · ${board.size} ${DECKS[board.deck].noun}${board.deck === "world" && board.region !== "all" ? " from " + REGION_NAME[board.region] : ""} · ${board.deal} deal`;
+  $("scores-status").textContent = "Loading scores...";
+  $("scores-list").replaceChildren();
+  openSheet("sheet-scores");
+  try {
+    const data = await scoreRequest(board);
+    if ($("sheet-scores").hidden) return;
+    scoreRows("scores-list", data.scores);
+    $("scores-status").textContent = data.scores.length ? "Top 10 for this setup." : "No scores yet for this setup.";
+  } catch (e) { $("scores-status").textContent = e.message; }
+}
+
+// The copy card is generated from server standings now, while they still exist.
+// It is a season-to-date snapshot, not a promise that expiry will preserve data.
+function seasonText(data) {
+  const lines = [`Mahgeong · Season ${data.season} · standings so far`,
+    `${data.players} ${data.players === 1 ? "player" : "players"} · ${data.boards} ${data.boards === 1 ? "board" : "boards"} with scores`];
+  if (data.firstScoreAt) lines.push(`First score: ${String(data.firstScoreAt).slice(0, 10)}`);
+  lines.push("Most board records:");
+  if (!data.champions.length) lines.push("No scores yet.");
+  data.champions.forEach((c, i) => lines.push(`${i + 1}. ${c.name} · ${c.wins} ${c.wins === 1 ? "record" : "records"} · fastest ${fmtPrecise(c.bestMs)}`));
+  return lines.join("\n");
+}
+async function showSeason() {
+  $("season-status").textContent = "Loading season...";
+  $("season-text").hidden = true;
+  $("btn-copy-season").hidden = true;
+  openSheet("sheet-season");
+  try {
+    const response = await fetch("/api/season");
+    if (!response.ok) throw new Error("Season standings aren't available on this host yet.");
+    const data = await response.json();
+    if ($("sheet-season").hidden) return;
+    $("btn-season").textContent = `Season ${data.season}`;
+    $("season-title").textContent = `Season ${data.season} summary`;
+    $("season-text").value = seasonText(data);
+    $("season-text").rows = Math.min(13, $("season-text").value.split("\n").length + 1);
+    $("season-text").hidden = false;
+    $("btn-copy-season").hidden = false;
+    $("season-status").textContent = "Current standings. New results may change them.";
+  } catch (e) { $("season-status").textContent = e.message; }
+}
+async function copySeason() {
+  const text = $("season-text").value;
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; } catch {}
+  if (!ok) { try { $("season-text").focus(); $("season-text").select(); ok = document.execCommand("copy"); } catch {} }
+  toast(ok ? "Season summary copied." : "Select the season summary text and copy it.");
+}
+
 // ---------- two-player over the LAN ----------
 // The server (lan/server.mjs) is authoritative: it deals the board, validates pairs and
 // keeps score. This client renders what it broadcasts and reconnects automatically.
 const VKEY = "mahgeong-versus";
+const CATS = [
+  { id: "capitals", label: "Capitals" }, { id: "flags", label: "Flags" },
+  { id: "currencies", label: "Currencies" }, { id: "populations", label: "Populations" },
+  { id: "presidents", label: "US presidents" }, { id: "state-flags", label: "US state flags" },
+  { id: "state-capitals", label: "US state capitals" },
+];
+const catLabel = id => (CATS.find(c => c.id === id) || {}).label || id;
 let vs = null;        // { ws, room, seat, token, name, status, names, connected, scores, winner, retry }
 let vsState = null;   // the shared board, kept when the tab is hidden so switching tabs loses nothing
 
@@ -1782,6 +2307,7 @@ function versusShow() {
     mount();
     versusScore();
     vsStatus(vsStatusText());
+    versusLobby();
     return;
   }
   $("v-score").hidden = true;
@@ -1790,18 +2316,31 @@ function versusShow() {
 
 function vsStatusText() {
   if (!vs) return "Not connected.";
-  if (vs.status === "waiting") return `Room code <b>${vs.room}</b> - share it with player two. Waiting for them to join.`;
+  if (vs.status === "waiting") {
+    const other = vs.seat === "A" ? "B" : "A";
+    if (!vs.names || !vs.names[other]) return `Room code <b>${vs.room}</b> - share it with player two. Waiting for them to join.`;
+    if (vs.phase === "veto") return `Veto draft with <b style="letter-spacing:0;font-size:1em">${esc(vs.names[other])}</b> in room <b>${vs.room}</b>. Strike two categories each.`;
+    if (vs.phase === "between") return `Round ${vs.round} to <b style="letter-spacing:0;font-size:1em">${esc(vs.names[vs.lastRoundWinner] || "your rival")}</b>. Next round: ${catLabel(vs.rounds[vs.round])}.`;
+    return `Waiting room: <b style="letter-spacing:0;font-size:1em">${esc(vs.names[other])}</b> is in room <b>${vs.room}</b>. Both tap Ready to unlock the board.`;
+  }
   if (vs.status === "playing") {
     const other = vs.seat === "A" ? "B" : "A";
     const away = vs.connected && !vs.connected[other];
-    return `Playing against <b style="letter-spacing:0;font-size:1em">${esc(vs.names[other] || "your rival")}</b>${away ? " (disconnected - waiting for them)" : ""} in room <b>${vs.room}</b>.`;
+    const base = `Playing against <b style="letter-spacing:0;font-size:1em">${esc(vs.names[other] || "your rival")}</b>${away ? " (disconnected - waiting for them)" : ""} in room <b>${vs.room}</b>.`;
+    return vs.tb ? base + " Sudden death - one clean answer after a rival's miss takes the round." : base;
   }
   if (vs.status === "done") return versusEndText();
   return "Connected. Host a game or join one with a code.";
 }
 
 function versusEndText() {
-  const mine = vs.scores[vs.seat], theirs = vs.scores[vs.seat === "A" ? "B" : "A"];
+  const other = vs.seat === "A" ? "B" : "A";
+  if (vs.champion) {
+    const won = vs.champion === vs.seat;
+    const rw = `${vs.roundWins[vs.seat]}-${vs.roundWins[other]}`;
+    return won ? `Champion! You take the Grand Final ${rw}.` : `${esc(vs.names[vs.champion] || "Your rival")} is champion, ${rw}.`;
+  }
+  const mine = vs.scores[vs.seat], theirs = vs.scores[other];
   if (vs.winner === "tie") return `Board cleared - a ${mine}-${theirs} tie. Well matched.`;
   const won = vs.winner === vs.seat;
   return `Board cleared - ${won ? "you win" : esc(vs.names[vs.winner] || "your rival") + " wins"} ${Math.max(mine, theirs)}-${Math.min(mine, theirs)}.`;
@@ -1814,7 +2353,77 @@ function versusScore() {
   $("v-me").textContent = vs.scores[vs.seat];
   $("v-opp").textContent = vs.scores[other];
   $("v-oppname").textContent = vs.names[other] || "rival";
-  $("v-left").textContent = state ? aliveTiles().length / 2 + " pairs left" : "";
+  $("v-left").textContent = state && state.tiles.length ? aliveTiles().length / 2 + " pairs left" : "";
+  $("v-round").textContent = vs.round
+    ? `round ${vs.round} of ${vs.rounds.length || 3} - ${catLabel(vs.rounds[vs.round - 1])} - rounds ${vs.roundWins[vs.seat]}-${vs.roundWins[other]}`
+    : "";
+  const turnEl = $("v-turn");
+  if (vs.status === "playing" && vs.turn) {
+    const mine = vs.turn === vs.seat;
+    turnEl.textContent = (vs.tb ? "sudden death - " : "") + (mine ? "your turn" : (vs.names[other] || "rival") + "'s turn");
+  } else turnEl.textContent = "";
+}
+
+// The waiting-room overlay: veto draft, then Ready, then the same Ready pause between rounds.
+function renderVetoCats() {
+  const el = $("v-cats");
+  if (!vs || vs.status !== "waiting" || vs.phase !== "veto") { el.innerHTML = ""; return; }
+  const myVeto = vs.vetoTurn === vs.seat && !!(vs.names && vs.names.A && vs.names.B);
+  el.innerHTML = CATS.map(c => {
+    const vetoed = vs.vetoes.some(v => v.cat === c.id);
+    return `<button type="button" class="chip${vetoed ? " vetoed" : ""}" data-cat="${c.id}"${vetoed || !myVeto ? " disabled" : ""}>${c.label}</button>`;
+  }).join("");
+}
+$("v-cats").addEventListener("click", e => {
+  const b = e.target.closest("[data-cat]");
+  if (b && !b.disabled) vsSend({ t: "veto", cat: b.dataset.cat });
+});
+
+function versusLobby() {
+  const el = $("v-lobby");
+  if (!vs || vs.status !== "waiting" || tab !== "versus") { el.hidden = true; return; }
+  const other = vs.seat === "A" ? "B" : "A";
+  const bothIn = !!(vs.names && vs.names[other]);
+  const meReady = !!(vs.ready && vs.ready[vs.seat]);
+  const themReady = !!(vs.ready && vs.ready[other]);
+  el.hidden = false;
+  if (vs.phase === "veto") {
+    $("v-ready").hidden = true;
+    if (!bothIn) {
+      $("v-lobby-title").textContent = "Room " + vs.room;
+      $("v-lobby-note").textContent = "Share the code with player two. Once you're both in, the veto draft decides which three of the seven categories become your rounds.";
+    } else {
+      const mine = vs.vetoTurn === vs.seat;
+      $("v-lobby-title").textContent = "Veto draft";
+      $("v-lobby-note").textContent = mine
+        ? "Your veto: strike one category. Two vetoes each; the three survivors become rounds 1-3."
+        : `Waiting for ${vs.names[other] || "your rival"} to strike a category.`;
+    }
+    renderVetoCats();
+    return;
+  }
+  renderVetoCats();
+  $("v-ready").hidden = !bothIn;
+  $("v-ready").disabled = meReady;
+  $("v-ready").textContent = meReady ? "Waiting for rival" : "Ready";
+  if (vs.phase === "between") {
+    const rw = vs.lastRoundWinner;
+    $("v-lobby-title").textContent = `Round ${vs.round} to ${rw === vs.seat ? "you" : (vs.names[rw] || "your rival")}${vs.sdWin ? " - sudden death" : ""}`;
+    $("v-lobby-note").textContent = `Rounds: you ${vs.roundWins[vs.seat]} - ${vs.roundWins[other]} ${vs.names[other] || "rival"}. Next round: ${catLabel(vs.rounds[vs.round])}. ` +
+      (meReady ? `You're ready - waiting for ${vs.names[other] || "your rival"}.`
+        : themReady ? `${vs.names[other] || "Your rival"} is ready. Tap Ready for round ${vs.round + 1}.`
+        : "Both tap Ready for the next round.");
+    return;
+  }
+  if (!bothIn) {
+    $("v-lobby-title").textContent = "Room " + vs.room;
+    $("v-lobby-note").textContent = "Share the code with player two. The board stays locked until you have both joined and tapped Ready.";
+  } else {
+    $("v-lobby-title").textContent = "Waiting room";
+    $("v-lobby-note").textContent = meReady
+      ? (themReady ? "Both ready - unlocking the board..." : "You are ready. Waiting for " + (vs.names[other] || "your rival") + " to tap Ready.")
+      : (themReady ? (vs.names[other] || "Your rival") + " is ready. Tap Ready to start." : "Both players are in. The board unlocks when you have both tapped Ready.");
+  }
 }
 
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
@@ -1872,29 +2481,62 @@ function vsSend(obj) {
 
 function applyVersusState(msg) {
   const tiles = msg.tiles.map(t => ({ ...t }));
-  if (!vsState) {
-    vsState = baseState({ kind: "versus", deck: "world", region: "all", layout: "wide", mode: "mix", size: tiles.length / 2, deal: "fair", tiles });
-  } else {
+  const wasStatus = vs.status;
+  const wasRound = vs.round;
+  if (!vsState) vsState = baseState({ kind: "versus", deck: msg.deck || "world", region: "all", layout: "wide", mode: "mix", size: tiles.length / 2, deal: "fair", tiles });
+  if (tiles.length) {
     vsState.tiles = tiles;
     vsState.sel = -1;
     vsState.done = msg.status === "done";
+    vsState.size = tiles.length / 2;
+    if (msg.deck) vsState.deck = msg.deck;
+    // Phones stack the same pairing on the portrait layout, exactly like the daily board.
+    vsState.layout = "wide";
+    if (wantPortrait() && PORTRAIT[vsState.size]) {
+      rng = mulberry32(97);
+      try { if (relayout(vsState.tiles, PORTRAIT[vsState.size])) vsState.layout = "portrait"; } finally { rng = Math.random; }
+    }
   }
-  // Phones stack the same pairing on the portrait layout, exactly like the daily board.
-  vsState.layout = "wide";
-  if (wantPortrait()) {
-    rng = mulberry32(97);
-    try { if (relayout(vsState.tiles, PORTRAIT[vsState.size])) vsState.layout = "portrait"; } finally { rng = Math.random; }
-  }
+  vs.phase = msg.phase;
+  vs.categories = msg.categories || [];
+  vs.vetoes = msg.vetoes || [];
+  vs.vetoTurn = msg.vetoTurn;
+  vs.rounds = msg.rounds || [];
+  vs.round = msg.round || 0;
+  vs.roundWins = msg.roundWins || { A: 0, B: 0 };
+  vs.lastRoundWinner = msg.lastRoundWinner;
+  vs.champion = msg.champion || null;
   vs.status = msg.status;
   vs.scores = msg.scores;
+  if (msg.misses) { vs.misses = msg.misses; vsState.mistakes = msg.misses[vs.seat] || 0; }
   vs.names = msg.names;
   vs.connected = msg.connected;
   vs.winner = msg.winner;
+  vs.ready = msg.ready || { A: false, B: false };
+  vs.turn = msg.turn;
+  vs.tb = !!msg.tb;
+  vs.sdwin = !!msg.sdwin;
+  vs.pending = msg.pending || null;
+  if (vs.pending && vs.pending.seat === vs.seat) vsState.sel = vs.pending.tile;
   if (tab === "versus") {
-    state = vsState;
-    mount();
+    if (vsState.tiles.length) { state = vsState; mount(); }
     versusScore();
     vsStatus(vsStatusText());
+    versusLobby();
+    if (wasStatus === "waiting" && msg.status === "playing") {
+      toast("Game on!");
+      setFact("Game on", vs.turn === vs.seat ? "The board is live. Your turn: commit to a tile." : `The board is live. <b>${esc(vs.names[vs.turn] || "Your rival")}</b> has the first turn.`);
+    }
+    if (wasStatus === "playing" && msg.status === "waiting" && msg.phase === "between") {
+      const rw = msg.lastRoundWinner;
+      toast(`${rw === vs.seat ? "You take" : (esc(vs.names[rw] || "Your rival") + " takes")} round ${wasRound}!`);
+    }
+    if (msg.status === "playing" && vs.pending) {
+      const mine = vs.pending.seat === vs.seat;
+      setFact(mine ? "Locked in" : "Rival locked in", mine
+        ? "Your first tile is locked - now tap its free match. A wrong pick costs you a point and gives your rival one."
+        : `<b>${esc(vs.names[vs.pending.seat] || "Your rival")}</b> locked a tile and must find its match.`);
+    }
     if (msg.status === "done") { state.done = true; refresh(); setFact("Game over", versusEndText()); }
   }
 }
@@ -1915,6 +2557,8 @@ function vsMessage(msg) {
       vsState.sel = -1;
     }
     vs.scores = msg.scores;
+    if (msg.turn) vs.turn = msg.turn;
+    vs.pending = msg.pending || null;
     if (tab === "versus" && state === vsState) {
       refresh();
       versusScore();
@@ -1929,9 +2573,27 @@ function vsMessage(msg) {
     if (msg.seat !== vs.seat && tab === "versus") toast(`${vs.names[msg.seat] || "Your rival"} missed a pair.`);
     return;
   }
+  if (msg.t === "penalty") {
+    vs.scores = msg.scores;
+    if (msg.misses) vs.misses = msg.misses;
+    if (tab === "versus") {
+      versusScore();
+      const me = msg.seat === vs.seat;
+      const rival = msg.seat === "A" ? "B" : "A";
+      const why = msg.reason === "dead" ? "locked a tile with no free match" : "picked the wrong match";
+      setFact(me ? "Penalty" : "Rival penalized", me
+        ? `You ${why}: -1 to you, +1 to <b>${esc(vs.names[rival] || "your rival")}</b>. The turn passes.`
+        : `<b>${esc(vs.names[msg.seat] || "Your rival")}</b> ${why}: -1 to them, +1 to you. Your turn.`);
+    }
+    return;
+  }
   if (msg.t === "peer") {
     if (vs.names) { vs.names[msg.seat] = msg.name || vs.names[msg.seat]; vs.connected[msg.seat] = msg.connected; }
-    if (tab === "versus") { vsStatus(vsStatusText()); toast(msg.connected ? `${msg.name} is in. Game on.` : `${msg.name || "Your rival"} disconnected.`); }
+    if (tab === "versus") {
+      vsStatus(vsStatusText());
+      if (vs.status === "waiting") versusLobby();
+      toast(msg.connected ? (vs.status === "playing" ? `${msg.name} is back.` : `${msg.name} is in.`) : `${msg.name || "Your rival"} disconnected.`);
+    }
     return;
   }
   if (msg.t === "stuck") { if (tab === "versus") setFact("Stuck", "No free pair matches. Shuffle the remaining tiles to keep going.", true); return; }
@@ -1939,18 +2601,27 @@ function vsMessage(msg) {
 }
 
 function onVersusTile(i, t) {
-  if (state.sel === i) { state.sel = -1; refresh(); return; }
-  if (state.sel < 0) { state.sel = i; refresh(); return; }
-  const s = state.tiles[state.sel];
-  state.sel = -1;
-  refresh();
-  if (s.code === t.code) vsSend({ t: "match", a: state.tiles.indexOf(s), b: i });
-  else {
-    state.mistakes++;
-    flash(s.el, "wrong", 350); flash(t.el, "wrong", 350);
-    refresh();
-    vsSend({ t: "miss" });
+  if (!vs || vs.status !== "playing") return;          // the waiting room keeps the board locked
+  if (vs.turn !== vs.seat) {
+    state.sel = -1; refresh();
+    setFact("Not your turn", `Waiting for <b>${esc(vs.names[vs.turn] || "your rival")}</b> to play.`);
+    return;
   }
+  if (!vs.pending) {
+    // First tap of the turn: the tile locks immediately and cannot be deselected or switched.
+    const free = freeTiles();
+    if (!free.includes(t)) { flash(t.el, "wrong", 350); return; }
+    const mate = free.some(o => o !== t && o.code === t.code);
+    state.sel = i; refresh();
+    vsSend({ t: "select", i, dead: !mate });
+    return;
+  }
+  const pi = vs.pending.tile;
+  if (i === pi) return;                                // a locked tile cannot be deselected
+  const s = state.tiles[pi];
+  state.sel = -1; refresh();
+  if (s.code === t.code) vsSend({ t: "match", a: pi, b: i });
+  else { flash(s.el, "wrong", 350); flash(t.el, "wrong", 350); vsSend({ t: "miss" }); }
 }
 
 $("v-create").addEventListener("click", () => {
@@ -1958,6 +2629,7 @@ $("v-create").addEventListener("click", () => {
   vsState = null; state = null;
   vsStartHello();
 });
+$("v-ready").addEventListener("click", () => vsSend({ t: "ready" }));
 $("v-join").addEventListener("click", () => {
   const code = $("v-code").value.trim().toUpperCase();
   if (!/^[A-Z]{4}$/.test(code)) { vsStatus("Room codes are four letters."); return; }
@@ -1967,6 +2639,7 @@ $("v-join").addEventListener("click", () => {
 
 // ---------- tabs and wiring ----------
 function setTab(t) {
+  stopTimer();
   if (state && state.kind === "daily") saveDaily();
   tab = t;
   $("tab-daily").setAttribute("aria-selected", t === "daily");
@@ -1975,7 +2648,7 @@ function setTab(t) {
   $("panel-daily").hidden = t !== "daily";
   $("panel-practice").hidden = t !== "practice";
   $("panel-versus").hidden = t !== "versus";
-  stopTimer();
+  document.querySelector(".seg.clock").hidden = t === "versus";
   closeOverlay();
   if (t === "daily") loadDaily();
   else if (t === "practice") fresh();
@@ -1988,6 +2661,35 @@ const regionVal = () => deckVal() === "world" ? radioVal("region") : "all";
 const modeVal = () => radioVal("mode");
 const sizeVal = () => +radioVal("size");
 const dealVal = () => radioVal("deal");
+const clockVal = () => radioVal("clock") !== "untimed";
+// The toggle shows the clock of the board in play, or the saved preference once a board is done.
+// New boards take whatever the toggle says.
+function syncClock() {
+  if (!state) return;
+  const timed = state.done ? LS.get(KEY.clock) !== "untimed" : state.timed;
+  setRadio("clock", timed ? "timed" : "untimed");
+}
+function boardStarted() { return !!(state && !state.done && (state.sel >= 0 || state.elapsed || state.elapsedMs || state.log.length || state.mistakes || state.hints || state.shuffles)); }
+document.querySelector(".seg.clock").addEventListener("change", () => {
+  const timed = clockVal();
+  if (state && !state.done && state.kind !== "versus") {
+    if (!timed) {
+      // Going untimed is always allowed; the time so far is thrown away.
+      const started = boardStarted();
+      state.timed = false; stopTimer(); state.elapsed = 0; state.elapsedMs = 0;
+      refresh(); saveDaily();
+      if (started) toast("Clock off for this board. Take your time.");
+    } else if (boardStarted()) {
+      // The clock can't start partway through: the time would be missing the moves already made.
+      setRadio("clock", "untimed");
+      toast("This board stays untimed. Finish it or start a new one to play against the clock.");
+      return;
+    } else {
+      state.timed = true; refresh(); saveDaily();
+    }
+  }
+  LS.set(KEY.clock, clockVal() ? "timed" : "untimed");
+});
 // Rebuild the mode buttons for the chosen deck, keeping the current mode where it still exists.
 function renderModes(keep) {
   const d = DECKS[deckVal()];
@@ -2031,10 +2733,41 @@ $("btn-hint").addEventListener("click", hint);
 $("btn-shuffle").addEventListener("click", reshuffle);
 $("btn-stuck-shuffle").addEventListener("click", reshuffle);
 $("btn-share").addEventListener("click", copyResult);
+$("btn-season").addEventListener("click", showSeason);
+$("btn-copy-season").addEventListener("click", copySeason);
+$("btn-season-close").addEventListener("click", closeOverlay);
+$("btn-view-scores").addEventListener("click", viewEndScores);
+$("btn-submit-score").addEventListener("click", submitEndScore);
+$("btn-board-scores").addEventListener("click", showBoardScores);
+$("btn-scores-close").addEventListener("click", closeOverlay);
 $("btn-next").addEventListener("click", () => setTab("daily"));
 $("btn-stats").addEventListener("click", showStats);
 $("btn-stats-close").addEventListener("click", closeOverlay);
 $("btn-help").addEventListener("click", () => openSheet("sheet-help"));
+// Tile contrast: 0 = the original light dim on locked tiles, 100 = near-black (default). Saved like the clock choice.
+function applyShade(v) {
+  v = Math.max(0, Math.min(100, Math.round(+v)));
+  if (!Number.isFinite(v)) v = 100;
+  const t = v / 100, veil = .12 + .85 * t, root = document.documentElement;
+  root.style.setProperty("--veil", veil.toFixed(3));
+  root.style.setProperty("--veil-pct", Math.round(veil * 100) + "%");
+  root.style.setProperty("--flag-b", (1 - .45 * t).toFixed(3));
+  root.style.setProperty("--flag-s", (1 - .5 * t).toFixed(3));
+  root.classList.toggle("shade-soft", veil < .6);
+  $("shade-range").value = v;
+  const word = v >= 95 ? "Maximum" : v >= 70 ? "High" : v >= 40 ? "Medium" : v >= 10 ? "Low" : "Original";
+  $("shade-val").textContent = word;
+  $("shade-range").setAttribute("aria-valuetext", word);
+  return v;
+}
+function setShadeOpen(open) { $("shade-pop").hidden = !open; $("btn-shade").setAttribute("aria-expanded", String(open)); }
+$("btn-shade").addEventListener("click", e => { e.stopPropagation(); setShadeOpen($("shade-pop").hidden); });
+$("shade-pop").addEventListener("click", e => e.stopPropagation());
+document.addEventListener("click", () => setShadeOpen(false));
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("shade-pop").hidden) { setShadeOpen(false); $("btn-shade").focus(); } });
+$("shade-range").addEventListener("input", () => LS.set(KEY.shade, applyShade($("shade-range").value)));
+$("shade-reset").addEventListener("click", () => LS.set(KEY.shade, applyShade(100)));
+{ const saved = LS.get(KEY.shade); applyShade(typeof saved === "number" ? saved : 100); }
 $("btn-help-close").addEventListener("click", () => { LS.set(KEY.help, 1); closeOverlay(); });
 document.querySelector("#panel-practice .controls").addEventListener("change", e => {
   if (e.target.name === "deck") renderModes(modeVal());
@@ -2043,6 +2776,7 @@ document.querySelector("#panel-practice .controls").addEventListener("change", e
 });
 renderModes("capital");
 fitModes();
+if (LS.get(KEY.clock) === "untimed") setRadio("clock", "untimed");
 document.fonts && document.fonts.ready.then(() => { fitAllText(); fit(); });
 
 // Carry the game across a republish.
@@ -2064,8 +2798,9 @@ function start(data) {
     $("tab-practice").setAttribute("aria-selected", "true");
     $("panel-daily").hidden = true;
     $("panel-practice").hidden = false;
-    state = { ...baseState(), ...p, deck: p.deck || "world", region: p.region || "all", deal: p.deal || "fair", kind: "practice", running: false, sel: -1 };
+    state = { ...baseState(), ...p, elapsedMs: p.elapsedMs ?? p.elapsed * 1000, legacyTime: p.legacyTime || (p.elapsedMs == null && p.done), deck: p.deck || "world", region: p.region || "all", deal: p.deal || "fair", kind: "practice", running: false, sel: -1 };
     mount();
+    syncClock();
     setFact("Resumed", "Your board is back where you left it.");
     return;
   }

@@ -221,3 +221,14 @@ test("the whole board can be cleared pair by pair until the game is done", () =>
   assert.equal(ev(`document.getElementById("sheet-end").hidden`), false);
   assert.equal(ev(`document.querySelectorAll("#recap li").length`), 18);
 });
+
+test("shade slider: defaults to the near-black look, applies, and persists", () => {
+  assert.equal(ev(`document.documentElement.style.getPropertyValue("--veil")`), "0.970");
+  ev(`document.getElementById("shade-range").value = 20; document.getElementById("shade-range").dispatchEvent(new Event("input"))`);
+  assert.equal(ev(`document.documentElement.style.getPropertyValue("--veil")`), "0.290");
+  assert.equal(ev(`document.documentElement.classList.contains("shade-soft")`), true);
+  assert.equal(ev(`localStorage.getItem("mahgeong-shade")`), "20");
+  ev(`document.getElementById("shade-reset").click()`);
+  assert.equal(ev(`document.documentElement.classList.contains("shade-soft")`), false);
+  assert.equal(ev(`localStorage.getItem("mahgeong-shade")`), "100");
+});
