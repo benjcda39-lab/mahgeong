@@ -666,16 +666,36 @@
     .wrap { padding-inline: 8px; gap: 10px; }
     .table { padding: 6px; border-radius: 10px; }
   }
+
+  #panel-levels { display:block; }
+  .level-head { display:flex; flex-wrap:wrap; align-items:center; gap:12px; justify-content:space-between; }
+  .level-head h2 { margin:0; font-size:1.2rem; }
+  .level-note { color:var(--ink-2); margin:8px 0; line-height:1.5; }
+  .level-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(48px,1fr)); gap:8px; margin:12px 0; }
+  .level-grid button { min-height:44px; padding:8px; }
+  .level-grid .cleared { background:#daf0d8; color:#244d24; }
+  .level-grid [aria-current="step"] { outline:2px solid var(--ink); outline-offset:2px; }
+  .level-grid button:disabled { opacity:.4; }
+  #level-picker summary { cursor:pointer; padding:8px 0; font-weight:600; }
+  #tab-daily:disabled { opacity:.55; }
+  @media(max-width:600px) {
+    #panel-levels .level-note { font-size:.85rem; line-height:1.4; margin:6px 0; }
+    #panel-levels .level-save { display:none; }
+    #panel-levels .level-head h2 { font-size:1.05rem; }
+    #panel-levels #level-restart { padding:7px 10px; }
+    #panel-levels #level-picker summary { padding:6px 0; }
+  }
 </style>
 
 <div class="wrap">
   <header>
     <div class="brand">
       <h1>Mah<em>geo</em>ng</h1>
-      <p>A daily geography puzzle, played like mahjong solitaire.</p>
+      <p>Learn the world, one mahjong puzzle at a time.</p>
     </div>
     <nav class="topbar" aria-label="Sections">
       <div class="tabs" role="tablist">
+        <button id="tab-levels" type="button" role="tab" aria-selected="false">Levels</button>
         <button id="tab-daily" type="button" role="tab" aria-selected="true">Daily</button>
         <button id="tab-practice" type="button" role="tab" aria-selected="false">Practice</button>
         <button id="tab-versus" type="button" role="tab" aria-selected="false">2 Player</button>
@@ -701,6 +721,13 @@
     </nav>
   </header>
 
+  <section class="strip" id="panel-levels" hidden aria-label="World levels">
+    <div class="level-head"><h2 id="level-title">Level 1 of 60</h2><button id="level-restart" type="button">Restart level</button></div>
+    <p class="level-note" id="level-description"></p>
+    <p class="level-note" id="level-progress" aria-live="polite"></p>
+    <details id="level-picker"><summary>Choose a level</summary><div class="level-grid" id="level-grid"></div></details>
+    <p class="level-note level-save">Progress saves on this device. Hints and shuffles are welcome. Practice and 2 Player are always open.</p>
+  </section>
   <section class="strip" id="panel-daily">
     <div class="masthead">
       <span class="no" id="d-no">No. 1</span>
@@ -953,7 +980,7 @@ derivative work: Serenthia. Public domain.</li><li><a href="https://commons.wiki
     </section>
     <section>
       <h3>Practice</h3>
-      <p class="how">The Practice tab has every mode and board size, plus a classic random deal for purists. Practice games don't touch your daily streak.</p>
+      <p class="how">Start with Levels: clear level 10 to unlock Daily. Your level progress saves on this device. The Practice tab has every mode and board size, plus a classic random deal for purists. Practice games don't touch your daily streak.</p>
     </section>
     <div class="btns">
       <button class="primary" id="btn-help-close" type="button">Let's go</button>
@@ -1621,6 +1648,28 @@ const PORTRAIT = {
   24: build([[4, 8, 0, 0, 0], [3, 4, 1, 4, 1], [2, 2, 2, 6, 2]]),
   30: build([[4, 9, 0, 0, 0], [3, 6, 1, 3, 1], [2, 3, 2, 6, 2]]),
 };
+// Small learning boards: one open pair per row, then introduce side blocking.
+for (let pairs = 3; pairs <= 10; pairs++) {
+  const positions = pairs <= 5 ? build([[2, pairs, 0, 0, 0]]) :
+    build([[4, Math.floor(pairs / 2), 0, 0, 0]], pairs % 2 ? [[0, 2 * Math.floor(pairs / 2), 0], [2, 2 * Math.floor(pairs / 2), 0]] : []);
+  LAYOUTS[pairs] = positions; PORTRAIT[pairs] = positions;
+}
+// Population is a reproducible proxy, not a measured recognition score. DATA is the
+// game's existing 2024 estimate. Alphabetical country name breaks ties.
+const LEVEL_RANK = [...DATA].sort((a,b) => b[3] - a[3] || a[1].localeCompare(b[1], "en"));
+// Explicit lesson examples, not a claim that these are the world's most recognised flags.
+const LEVEL_STARTERS = ["FR", "JP", "BR", "AU", "US", "GB", "CA", "DE", "IT", "CN", "IN", "MX", "ES", "KR", "NZ"];
+const LEVEL_COUNTRIES = [...LEVEL_STARTERS.map(code => DATA.find(c => c[0] === code)), ...LEVEL_RANK.filter(c => !LEVEL_STARTERS.includes(c[0]))];
+const LEVEL_COUNT = 60;
+function levelSpec(n) {
+  n = Math.max(1, Math.min(LEVEL_COUNT, Math.floor(n)));
+  const size = n <= 10 ? 3 + Math.floor((n-1)/4) : n <= 20 ? 6 + Math.floor((n-11)/2.5) : n <= 30 ? 12 : n <= 40 ? 18 : n <= 50 ? 24 : 30;
+  const mode = n <= 20 ? "flag" : n <= 40 ? "capital" : "mix";
+  const end = n <= 10 ? 3 + Math.floor((n-1)*12/9) : n <= 20 ? 15 + (n-10)*5 : n <= 40 ? 65 + Math.floor((n-20)*65/20) : 130 + Math.floor((n-40)*67/20);
+  const width = n <= 10 ? end : Math.max(size+8, n <= 40 ? 40 : 65);
+  const pool = LEVEL_COUNTRIES.slice(Math.max(0,end-width),end);
+  return { n, size, mode, pool, kinds:n <= 50 ? ["flag","capital"] : KINDS };
+}
 const TW = 104, TH = 132, HW = TW / 2, HH = TH / 2, LX = -6, LY = -8, PAD = 20;
 function wantPortrait() { return window.innerWidth < 600; }
 // Move an already-dealt set of tiles onto another layout, keeping every pairing. Uses the current rng, so a
@@ -1740,7 +1789,48 @@ function snapshotOf(s) {
   const { kind, n, deck, region, layout, timed, death, over, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag } = s;
   return { kind, n, deck, region, layout, timed, death, over, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
 }
-function saveDaily() { if (state && state.kind === "daily") LS.set(KEY.daily + state.n, snapshotOf(state)); }
+function saveDaily() {
+  if (state?.kind === "daily") LS.set(KEY.daily + state.n, snapshotOf(state));
+  if (state?.kind === "level") LS.set("mahgeong-level-board-v1", {...snapshotOf(state), level:state.level});
+}
+const LEVEL_PROGRESS_KEY = "mahgeong-level-progress-v1";
+let levelCleared = Math.max(0, Math.min(LEVEL_COUNT, Math.floor(Number(LS.get(LEVEL_PROGRESS_KEY)) || 0)));
+function hasLegacyDaily() {
+  if (Object.keys(LS.get(KEY.results) || {}).length) return true;
+  try { for (let i=0;i<localStorage.length;i++) if (localStorage.key(i).startsWith(KEY.daily)) return true; } catch {}
+  return false;
+}
+const legacyDaily = hasLegacyDaily();
+function dailyUnlocked() { return legacyDaily || levelCleared >= 10; }
+function renderLevels() {
+  const n = state?.kind === "level" ? state.level : Math.min(LEVEL_COUNT,levelCleared+1);
+  const spec = levelSpec(n);
+  $("level-title").textContent = `Level ${n} of ${LEVEL_COUNT} · World`;
+  $("level-description").textContent = `${spec.size*2} tiles · ${MODE_NAME[spec.mode]} · ${n <= 5 ? "Match a country to its flag. All tiles are open to tap." : n <= 10 ? "More flags to learn. Tap two tiles from the same country." : n <= 20 ? "Side blocking: clear the outside tiles to reach the middle." : n <= 40 ? "Stacked boards: clear the top tiles to reach the tiles below." : n <= 50 ? "Flags and capitals together. Keep an eye on each tile's label." : "Flags, capitals, currencies and populations. Use hints to learn a new match."}`;
+  $("level-progress").textContent = `${levelCleared} of ${LEVEL_COUNT} cleared · saved on this device. ${dailyUnlocked() ? "Daily challenge unlocked." : `Clear level 10 to unlock the Daily challenge (${10-levelCleared} to go).`}`;
+  $("tab-daily").disabled = !dailyUnlocked();
+  $("tab-daily").textContent = dailyUnlocked() ? "Daily" : "Daily · locked";
+  $("tab-daily").title = dailyUnlocked() ? "Today's challenge" : "Clear level 10 to unlock";
+  $("level-grid").innerHTML = Array.from({length:LEVEL_COUNT},(_,i)=>`<button type="button" data-level="${i+1}" aria-label="Level ${i+1}${i<levelCleared ? ', cleared' : i>levelCleared ? ', locked' : ', available'}"${i+1===n ? ' aria-current="step"' : ''}${i<levelCleared ? ' class="cleared"' : ''}${i>levelCleared ? ' disabled' : ''}>${i<levelCleared ? '✓ ' : ''}${i+1}</button>`).join("");
+}
+function loadLevel(n = null, restart = false) {
+  if (n == null) { const resumed=LS.get("mahgeong-level-board-v1"); n=resumed && !resumed.done && Number.isInteger(resumed.level) ? resumed.level : Math.min(LEVEL_COUNT,levelCleared+1); }
+  stopTimer(); n = Math.max(1,Math.min(LEVEL_COUNT,levelCleared+1,Math.floor(n)));
+  const spec = levelSpec(n), saved = LS.get("mahgeong-level-board-v1");
+  if (!restart && saved?.level === n && saved.tiles?.length === spec.size*2 && saved.tiles.every(t => DATA.some(c => c[0]===t.code)) && !saved.over) {
+    state = {...baseState(),...saved,kind:"level",level:n,running:false,sel:-1,death:false};
+  } else {
+    rng = mulberry32(n*104729+61);
+    let tiles,layout="wide";
+    try { tiles=makeTiles(spec.mode,spec.size,"fair",spec.pool,spec.kinds);
+      if (wantPortrait() && relayout(tiles,PORTRAIT[spec.size])) layout="portrait";
+    } finally { rng=Math.random; }
+    state=baseState({kind:"level",level:n,deck:"world",region:"all",layout,timed:clockVal(),death:false,mode:spec.mode,size:spec.size,deal:"fair",tiles});
+  }
+  mount(); syncClock(); $("placard").hidden=true; closeOverlay(); renderLevels(); saveDaily();
+  setFact(state.done ? "Level cleared" : `Level ${n}`, state.done ? "Open Choose a level to continue or replay a cleared level." : n<=5 ? "Tap a country, then its flag. Every tile on this first board is open. There's no penalty for learning: try a hint if you're unsure." : "Match two free tiles from the same country. Shaded tiles are blocked. Hints and shuffles won't stop you unlocking the next level.");
+}
+
 
 function newPractice(deck, region, mode, size, deal) {
   stopTimer();
@@ -2046,6 +2136,7 @@ function reshuffle() {
 // ---------- results, stats, sharing ----------
 function bestKey() {
   const scope = (state.deck && state.deck !== "world" ? state.deck + "-" : "") + (state.region && state.region !== "all" ? state.region + "-" : "");
+  if (state.kind === "level") return "mahgeong-level-best-" + state.level;
   return KEY.best + scope + state.mode + "-" + state.size + (state.deal === "classic" ? "-classic" : "") + (state.death ? "-death" : "");
 }
 function getBest() { try { const v = localStorage.getItem(bestKey() + "-ms"); return v == null ? null : +v; } catch { return null; } }
@@ -2084,6 +2175,7 @@ function renderMarks(el, marks) {
 // names the clue type, deck size and scope instead (a speed run means
 // nothing without the board size).
 function shareHead() {
+  if (state.kind === "level") return `${NAME} Level ${state.level} · ${MODE_NAME[state.mode]}`;
   if (state.kind === "daily") return `${NAME} No. ${state.n} · ${MODE_NAME[state.mode]}`;
   const d = deckOf(state);
   const scope = state.deck === "world" && state.region !== "all" ? ` from ${REGION_NAME[state.region]}` : "";
@@ -2146,7 +2238,10 @@ function finish() {
   state.done = true;
   const daily = state.kind === "daily";
   let best = null, isNew = false;
-  if (daily) {
+  if (state.kind === "level") {
+    if (state.level === levelCleared+1) { levelCleared=state.level; LS.set(LEVEL_PROGRESS_KEY,levelCleared); }
+    saveDaily(); renderLevels();
+  } else if (daily) {
     recordResult();
     saveDaily();
     showPlacard();
@@ -2197,12 +2292,18 @@ function showEndSheet(isNew, best) {
   $("end-hints").textContent = state.hints;
   $("end-share").hidden = false;   // practice results are shareable too
   setupScoreResult();
-  $("end-scores").hidden = !!state.death;   // death-match runs stay off the regular high-score tables
+  $("end-scores").hidden = !!state.death || state.kind === "level";   // death-match runs stay off the regular high-score tables
   $("sheet-end").classList.toggle("over", !!state.over);
   $("btn-again").textContent = state.over ? "Try again" : "Play again";
   $("end-next").hidden = !daily;
   $("btn-again").hidden = daily;
   $("btn-end-practice").hidden = !daily;
+  if (state.kind === "level") {
+    $("end-title").textContent = `Level ${state.level} cleared!`;
+    $("end-sum").textContent = state.level===10 ? "Daily challenge unlocked! Keep learning, or try today's board from the Daily tab." : state.level===LEVEL_COUNT ? "All 60 levels cleared. Replay any level, try Practice or take on the Daily challenge." : `Next up: level ${Math.min(LEVEL_COUNT,state.level+1)}. Progress saved on this device.`;
+    $("end-side").textContent = `${levelCleared}/${LEVEL_COUNT}`; $("end-side-l").textContent = "levels cleared";
+    $("btn-again").textContent = state.level<LEVEL_COUNT ? "Next level" : "Replay level 60";
+  }
   const list = state.log.slice().sort((a, b) => BY_CODE[a.code][1].localeCompare(BY_CODE[b.code][1]));
   $("recap").innerHTML = list.map(e => {
     const c = BY_CODE[e.code];
@@ -2290,6 +2391,7 @@ function setupScoreResult() {
   $("btn-submit-score").disabled = !!state.legacyTime || !state.timed;
 }
 async function viewEndScores() {
+  if (state?.kind === "level") return;
   const board = scoreBoard(state);
   $("score-status").textContent = "Loading scores...";
   try {
@@ -2300,6 +2402,7 @@ async function viewEndScores() {
   } catch (e) { $("score-status").textContent = e.message; }
 }
 async function submitEndScore() {
+  if (state?.kind === "level") return;
   const name = $("score-name").value.trim();
   if (!name || [...name].length > 24 || /[\x00-\x1f\x7f]/.test(name)) { $("score-status").textContent = "Enter a name (up to 24 characters)."; return; }
   if (!state.done || state.legacyTime || !state.timed) return;
@@ -2728,9 +2831,14 @@ $("v-join").addEventListener("click", () => {
 
 // ---------- tabs and wiring ----------
 function setTab(t) {
+  if (t === "daily" && !dailyUnlocked()) t="levels";
   stopTimer();
   if (state && state.kind === "daily") saveDaily();
-  tab = t;
+  saveDaily();
+  tab = t; LS.set("mahgeong-last-tab",t);
+  $("tab-levels").setAttribute("aria-selected",t === "levels");
+  $("panel-levels").hidden = t !== "levels";
+  renderLevels();
   $("tab-daily").setAttribute("aria-selected", t === "daily");
   $("tab-practice").setAttribute("aria-selected", t === "practice");
   $("tab-versus").setAttribute("aria-selected", t === "versus");
@@ -2739,7 +2847,8 @@ function setTab(t) {
   $("panel-versus").hidden = t !== "versus";
   document.querySelector(".seg.clock").hidden = t === "versus";
   closeOverlay();
-  if (t === "daily") loadDaily();
+  if (t === "levels") loadLevel();
+  else if (t === "daily") loadDaily();
   else if (t === "practice") fresh();
   else versusShow();
 }
@@ -2812,11 +2921,14 @@ function fitSizes() {
 const fresh = () => { $("placard").hidden = true; fitSizes(); newPractice(deckVal(), regionVal(), modeVal(), sizeVal(), dealVal()); };
 const toPractice = () => setTab("practice");
 
+$("tab-levels").addEventListener("click",()=>setTab("levels"));
+$("level-restart").addEventListener("click",()=>loadLevel(state.level,true));
+$("level-grid").addEventListener("click",e=>{const b=e.target.closest("button[data-level]");if(b&&!b.disabled) {saveDaily();loadLevel(+b.dataset.level);}});
 $("tab-daily").addEventListener("click", () => setTab("daily"));
 $("tab-practice").addEventListener("click", toPractice);
 $("tab-versus").addEventListener("click", () => setTab("versus"));
 $("btn-new").addEventListener("click", fresh);
-$("btn-again").addEventListener("click", fresh);
+$("btn-again").addEventListener("click", () => state.kind === "level" ? loadLevel(Math.min(LEVEL_COUNT,state.level+1),true) : fresh());
 $("btn-end-practice").addEventListener("click", toPractice);
 $("pl-practice").addEventListener("click", toPractice);
 $("pl-results").addEventListener("click", () => showEndSheet(false, null));
@@ -2879,6 +2991,8 @@ function snapshot() {
   return { tab, practice: state && state.kind === "practice" ? snapshotOf(state) : null };
 }
 function start(data) {
+  renderLevels();
+  if (data?.tab === "levels") { setTab("levels"); return; }
   if (data && data.tab === "practice" && data.practice && data.practice.tiles) {
     const p = data.practice;
     setRadio("deck", p.deck || "world");
@@ -2889,6 +3003,7 @@ function start(data) {
     setRadio("deal", p.deal || "fair");
     setRadio("rules", p.death ? "death" : "normal");
     tab = "practice";
+    $("panel-levels").hidden=true; $("tab-levels").setAttribute("aria-selected","false");
     $("tab-daily").setAttribute("aria-selected", "false");
     $("tab-practice").setAttribute("aria-selected", "true");
     $("panel-daily").hidden = true;
@@ -2899,9 +3014,10 @@ function start(data) {
     setFact("Resumed", "Your board is back where you left it.");
     return;
   }
-  setTab("daily");
-  if (!LS.get(KEY.help)) openSheet("sheet-help");
-  else if (state.done) showEndSheet(false, null);
+  const last=LS.get("mahgeong-last-tab");
+  setTab(["levels","daily","practice"].includes(last) ? last : legacyDaily ? "daily" : "levels");
+  if (tab !== "levels" && !LS.get(KEY.help)) openSheet("sheet-help");
+  else if (state.done && tab !== "levels") showEndSheet(false, null);
 }
 if (window.claude?.hot?.snapshot) window.claude.hot.snapshot(snapshot);
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
