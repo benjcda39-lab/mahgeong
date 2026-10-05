@@ -53,3 +53,41 @@ expanded decks and multiplayer remain intact.
 
 Both local worktrees contain the change and regenerated docs/index.html. Nothing
 pushed or deployed. Review phone/desktop screenshots before approval and deployment.
+
+## Sudden Death and Flawless medals (local preview)
+
+The Levels panel now has Normal / Sudden Death. Sudden Death uses the same 60
+boards with a separate ladder and partial-board save. One wrong pair ends that
+attempt; the result button returns to the first unbanked level. Clearing 10, 20,
+30, 40 or 50 banks those clears permanently. For example, failing at 14 returns
+to 11, with 1-10 banked. Before the first checkpoint, return to 1. There is no
+level picker in this journey. Hints are disabled; shuffle and timed/untimed play
+remain available. Restart replays the current board, not the checkpoint.
+
+Clearing 60 completes and permanently banks the journey. The final board can be
+replayed without losing completion. Sudden Death never advances Normal clears or
+unlocks Daily. Switching journeys and reloading preserve separate partial boards.
+The last chosen journey is remembered. Existing landing-tab logic is unchanged;
+the previously paused change to make everybody land on Levels is NOT included.
+
+Flawless means zero misses, exactly as requested. Hints, shuffle and untimed play
+qualify. Every freshly cleared solo board earns one medal; reopening a result or
+reloading does not earn another. Daily awards are keyed by puzzle number and are
+counted once, with their own profile count. Recorded old zero-miss Daily results
+are backfilled, but unrecorded old Practice runs cannot be reconstructed. Normal
+Levels, Sudden Death, Practice, Death match, Daily and 2 Player each have their
+own medal count in the collection. In 2 Player, the shared board must be finished,
+the player must have claimed at least one pair, and their personal misses must be
+zero. Existing server-provided miss totals prevent reconnects erasing mistakes;
+room-token medal IDs prevent repeat awards. No server changes.
+
+The existing statistics icon now opens Your game profile. Normal progress,
+Sudden Death's current level/banked clears, medal counts and the original Daily
+statistics appear there. All are per-device local storage, without accounts or
+sync. Clearing browser storage loses the collection and progress. Medals are
+personal rewards, not verified competitive scores. No new leaderboard writes.
+
+Regression checks cover checkpoint rollback/resume, completion, separate saves,
+Normal tolerance/unlock, all medal categories, duplicate prevention and old Daily
+backfill. The 120-board Daily byte signature remains
+056b08dd00561a3ab8dc766d82d17004dbe806f84432154f4f895fa739ae25a4.

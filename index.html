@@ -668,6 +668,16 @@
   }
 
   #panel-levels { display:block; }
+  .sheet.over.sudden-death h2 { font-size:clamp(1.7rem,7vw,2.8rem); overflow-wrap:anywhere; }
+  .expedition-note { border-left:3px solid #9c712a; padding-left:12px; }
+  .profile-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:14px 0; }
+  .profile-card { border:1px solid var(--line); border-radius:10px; padding:12px; background:#f5f1e7; }
+  .profile-card b { display:block; font-size:1.3rem; }
+  .profile-card span { font-size:.85rem; color:var(--ink-2); }
+  .medal-earned { padding:12px; border:1px solid #ad852d; border-radius:10px; background:#fff5cf; color:#674b12; margin:12px 0; }
+  #profile-medals { display:flex; flex-wrap:wrap; gap:8px; padding:0; list-style:none; }
+  #profile-medals li { padding:7px 10px; background:#fff5cf; border-radius:20px; font-size:.85rem; }
+
   .level-head { display:flex; flex-wrap:wrap; align-items:center; gap:12px; justify-content:space-between; }
   .level-head h2 { margin:0; font-size:1.2rem; }
   .level-note { color:var(--ink-2); margin:8px 0; line-height:1.5; }
@@ -705,7 +715,7 @@
         <input type="radio" name="clock" id="clock-untimed" value="untimed"><label for="clock-untimed">Untimed</label>
       </div>
       <button id="btn-season" type="button">Season 1</button>
-      <button id="btn-stats" class="icon" type="button" title="Your statistics" aria-label="Your statistics">
+      <button id="btn-stats" class="icon" type="button" title="Your game profile" aria-label="Your game profile">
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="10" width="4" height="8" rx="1"/><rect x="8" y="4" width="4" height="14" rx="1"/><rect x="14" y="7" width="4" height="11" rx="1"/></svg>
       </button>
       <button id="btn-shade" class="icon" type="button" title="Tile contrast" aria-label="Tile contrast" aria-expanded="false" aria-controls="shade-pop">
@@ -722,6 +732,11 @@
   </header>
 
   <section class="strip" id="panel-levels" hidden aria-label="World levels">
+    <div class="seg" role="radiogroup" aria-label="Level journey">
+      <input type="radio" name="journey" id="journey-normal" value="normal" checked><label for="journey-normal">Normal</label>
+      <input type="radio" name="journey" id="journey-expedition" value="expedition"><label for="journey-expedition">Sudden Death</label>
+    </div>
+    <p class="level-note expedition-note" id="expedition-rules" hidden>One miss sends you back. Checkpoints every 10 clears. No hints; shuffles allowed. Normal progress stays separate.</p>
     <div class="level-head"><h2 id="level-title">Level 1 of 60</h2><button id="level-restart" type="button">Restart level</button></div>
     <p class="level-note" id="level-description"></p>
     <p class="level-note" id="level-progress" aria-live="polite"></p>
@@ -891,6 +906,7 @@ derivative work: Serenthia. Public domain.</li><li><a href="https://commons.wiki
   <div class="sheet" id="sheet-end" role="dialog" aria-labelledby="end-title" hidden>
     <h2 id="end-title">Board cleared</h2>
     <p class="sum" id="end-sum"></p>
+    <p class="medal-earned" id="end-medal" role="status" hidden>★ Flawless medal earned · saved to your game profile.</p>
     <div class="grid">
       <div><b id="end-time">0:00</b><span id="end-time-l">time</span></div>
       <div><b id="end-miss">0</b><span>misses</span></div>
@@ -948,7 +964,16 @@ derivative work: Serenthia. Public domain.</li><li><a href="https://commons.wiki
   </div>
 
   <div class="sheet" id="sheet-stats" role="dialog" aria-labelledby="stats-title" hidden>
-    <h2 id="stats-title">Your statistics</h2>
+    <h2 id="stats-title">Your game profile</h2>
+    <p class="how">On this device only. No account or cloud sync. Clearing browser data removes progress and medals.</p>
+    <div class="profile-cards">
+      <div class="profile-card"><b id="profile-levels">0 / 60</b><span>Normal levels cleared</span></div>
+      <div class="profile-card"><b id="profile-expedition">Level 1</b><span id="profile-checkpoint">Sudden Death · no checkpoint yet</span></div>
+      <div class="profile-card"><b id="profile-total">0</b><span>Flawless medals</span></div>
+      <div class="profile-card"><b id="profile-daily">0</b><span>Flawless Daily puzzles</span></div>
+    </div>
+    <section><h3>Medal collection</h3><p class="how">Clear a board with zero misses. Timed or untimed, hints and shuffles allowed. Replays can earn more; each Daily puzzle counts once. In 2 Player, finish the shared board, claim at least one pair and make no personal misses.</p><ul id="profile-medals"></ul><p class="how" id="profile-empty">Your first flawless clear starts the collection.</p></section>
+    <h3>Daily statistics</h3>
     <p class="sum" id="stats-sum">Daily puzzles only. Practice boards don't count.</p>
     <div class="grid">
       <div><b id="s-played">0</b><span>played</span></div>
@@ -1783,15 +1808,50 @@ const $ = id => document.getElementById(id);
 const board = $("board"), viewport = $("viewport");
 
 function baseState(extra) {
-  return { deck: "world", region: "all", layout: "wide", timed: true, death: false, over: false, mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, elapsedMs: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
+  return { medalId: newMedalId(), deck: "world", region: "all", layout: "wide", timed: true, death: false, over: false, mistakes: 0, hints: 0, shuffles: 0, elapsed: 0, elapsedMs: 0, running: false, done: false, sel: -1, log: [], marks: [], missFlag: false, helpFlag: false, ...extra };
 }
 function snapshotOf(s) {
-  const { kind, n, deck, region, layout, timed, death, over, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag } = s;
-  return { kind, n, deck, region, layout, timed, death, over, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
+  const { kind, n, deck, region, layout, timed, death, over, medalId, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag } = s;
+  return { kind, n, deck, region, layout, timed, death, over, medalId, mode, size, deal, mistakes, hints, shuffles, elapsed, elapsedMs, legacyTime, done, log, marks, missFlag, helpFlag, tiles: s.tiles.map(({ x, y, z, code, kind, alive }) => ({ x, y, z, code, kind, alive })) };
 }
 function saveDaily() {
   if (state?.kind === "daily") LS.set(KEY.daily + state.n, snapshotOf(state));
-  if (state?.kind === "level") LS.set("mahgeong-level-board-v1", {...snapshotOf(state), level:state.level});
+  if (state?.kind === "level") LS.set(state.rogue ? "mahgeong-expedition-board-v1" : "mahgeong-level-board-v1", {...snapshotOf(state), level:state.level, rogue:!!state.rogue});
+}
+const EXPEDITION_KEY = "mahgeong-expedition-v1";
+const MEDALS_KEY = "mahgeong-medals-v1";
+function newMedalId() { return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`; }
+function readExpedition() {
+  const r=LS.get(EXPEDITION_KEY)||{};
+  const bank=Math.max(0,Math.min(60,Math.floor((Number(r.bank)||0)/10)*10));
+  return {bank, next:bank===60 ? 60 : Math.max(bank+1,Math.min(60,bank+10,Math.floor(Number(r.next)||bank+1)))};
+}
+let expedition=readExpedition(), journey=LS.get("mahgeong-journey-v1")==="expedition" ? "expedition" : "normal";
+function saveExpedition() { LS.set(EXPEDITION_KEY,expedition); }
+function medalCategory(s) { return s.kind==="level" ? s.rogue ? "expedition" : "levels" : s.kind==="practice" ? s.death ? "death" : "practice" : s.kind; }
+function awardFlawless(s) {
+  if (!s.done || s.over || s.mistakes!==0) return false;
+  const medals=LS.get(MEDALS_KEY)||{};
+  const id=s.kind==="daily" ? `daily-${s.n}` : s.medalId;
+  if (!id || medals[id]) return false;
+  medals[id]={category:medalCategory(s),level:s.level||null};
+  LS.set(MEDALS_KEY,medals); return true;
+}
+function renderProfile() {
+  // Daily history is reliable; older Practice runs were never recorded.
+  const medals=LS.get(MEDALS_KEY)||{};
+  for (const [n,r] of Object.entries(LS.get(KEY.results)||{})) if (r.m===0 && !medals[`daily-${n}`]) medals[`daily-${n}`]={category:"daily",level:null};
+  LS.set(MEDALS_KEY,medals);
+  const counts={levels:0,expedition:0,practice:0,death:0,daily:0,versus:0};
+  Object.values(medals).forEach(m=>{if (m.category in counts) counts[m.category]++;});
+  $("profile-levels").textContent=`${levelCleared} / 60`;
+  $("profile-expedition").textContent=expedition.bank===60 ? "Completed!" : `Level ${expedition.next}`;
+  $("profile-checkpoint").textContent=`Sudden Death · ${expedition.bank ? `${expedition.bank} clears banked` : "no checkpoint yet"}`;
+  $("profile-total").textContent=Object.values(counts).reduce((a,b)=>a+b,0);
+  $("profile-daily").textContent=counts.daily;
+  const labels={levels:"Levels",expedition:"Sudden Death",practice:"Practice",death:"Death match",daily:"Daily",versus:"2 Player"};
+  $("profile-medals").innerHTML=Object.entries(counts).filter(([,n])=>n).map(([c,n])=>`<li>★ ${labels[c]} · ${n}</li>`).join("");
+  $("profile-empty").hidden=Object.values(counts).some(Boolean);
 }
 const LEVEL_PROGRESS_KEY = "mahgeong-level-progress-v1";
 let levelCleared = Math.max(0, Math.min(LEVEL_COUNT, Math.floor(Number(LS.get(LEVEL_PROGRESS_KEY)) || 0)));
@@ -1803,31 +1863,40 @@ function hasLegacyDaily() {
 const legacyDaily = hasLegacyDaily();
 function dailyUnlocked() { return legacyDaily || levelCleared >= 10; }
 function renderLevels() {
-  const n = state?.kind === "level" ? state.level : Math.min(LEVEL_COUNT,levelCleared+1);
+  const rogue=journey==="expedition";
+  $("journey-expedition").checked=rogue; $("journey-normal").checked=!rogue;
+  $("expedition-rules").hidden=!rogue; $("level-picker").hidden=rogue;
+  const n = state?.kind === "level" ? state.level : rogue ? expedition.next : Math.min(LEVEL_COUNT,levelCleared+1);
   const spec = levelSpec(n);
-  $("level-title").textContent = `Level ${n} of ${LEVEL_COUNT} · World`;
+  $("level-title").textContent = `${rogue ? "Sudden Death · " : ""}Level ${n} of ${LEVEL_COUNT} · World`;
   $("level-description").textContent = `${spec.size*2} tiles · ${MODE_NAME[spec.mode]} · ${n <= 5 ? "Match a country to its flag. All tiles are open to tap." : n <= 10 ? "More flags to learn. Tap two tiles from the same country." : n <= 20 ? "Side blocking: clear the outside tiles to reach the middle." : n <= 40 ? "Stacked boards: clear the top tiles to reach the tiles below." : n <= 50 ? "Flags and capitals together. Keep an eye on each tile's label." : "Flags, capitals, currencies and populations. Use hints to learn a new match."}`;
   $("level-progress").textContent = `${levelCleared} of ${LEVEL_COUNT} cleared · saved on this device. ${dailyUnlocked() ? "Daily challenge unlocked." : `Clear level 10 to unlock the Daily challenge (${10-levelCleared} to go).`}`;
+  if (rogue) $("level-description").textContent=$("level-description").textContent.replace("Use hints to learn a new match.","One miss sends you back to your checkpoint.");
+  if (rogue) $("level-progress").textContent=expedition.bank===60 ? "Sudden Death complete! All 60 clears banked permanently. Replay level 60 any time." : `${expedition.bank} clears banked · a miss returns to level ${expedition.bank+1}. Next checkpoint: ${Math.min(60,expedition.bank+10)} clears.`;
+  $("level-restart").textContent=rogue && expedition.bank===60 ? "Replay level 60" : "Restart level";
   $("tab-daily").disabled = !dailyUnlocked();
   $("tab-daily").textContent = dailyUnlocked() ? "Daily" : "Daily · locked";
   $("tab-daily").title = dailyUnlocked() ? "Today's challenge" : "Clear level 10 to unlock";
   $("level-grid").innerHTML = Array.from({length:LEVEL_COUNT},(_,i)=>`<button type="button" data-level="${i+1}" aria-label="Level ${i+1}${i<levelCleared ? ', cleared' : i>levelCleared ? ', locked' : ', available'}"${i+1===n ? ' aria-current="step"' : ''}${i<levelCleared ? ' class="cleared"' : ''}${i>levelCleared ? ' disabled' : ''}>${i<levelCleared ? '✓ ' : ''}${i+1}</button>`).join("");
 }
 function loadLevel(n = null, restart = false) {
-  if (n == null) { const resumed=LS.get("mahgeong-level-board-v1"); n=resumed && !resumed.done && Number.isInteger(resumed.level) ? resumed.level : Math.min(LEVEL_COUNT,levelCleared+1); }
-  stopTimer(); n = Math.max(1,Math.min(LEVEL_COUNT,levelCleared+1,Math.floor(n)));
-  const spec = levelSpec(n), saved = LS.get("mahgeong-level-board-v1");
+  const rogue=journey==="expedition", boardKey=rogue ? "mahgeong-expedition-board-v1" : "mahgeong-level-board-v1";
+  if (rogue) n=expedition.next;
+  if (n == null) { const resumed=LS.get(boardKey); n=resumed && !resumed.done && Number.isInteger(resumed.level) ? resumed.level : Math.min(LEVEL_COUNT,levelCleared+1); }
+  stopTimer(); n = Math.max(1,Math.min(LEVEL_COUNT,rogue ? expedition.next : levelCleared+1,Math.floor(n)));
+  const spec = levelSpec(n), saved = LS.get(boardKey);
   if (!restart && saved?.level === n && saved.tiles?.length === spec.size*2 && saved.tiles.every(t => DATA.some(c => c[0]===t.code)) && !saved.over) {
-    state = {...baseState(),...saved,kind:"level",level:n,running:false,sel:-1,death:false};
+    state = {...baseState(),...saved,medalId:saved.medalId||newMedalId(),kind:"level",level:n,rogue,running:false,sel:-1,death:rogue};
   } else {
     rng = mulberry32(n*104729+61);
     let tiles,layout="wide";
     try { tiles=makeTiles(spec.mode,spec.size,"fair",spec.pool,spec.kinds);
       if (wantPortrait() && relayout(tiles,PORTRAIT[spec.size])) layout="portrait";
     } finally { rng=Math.random; }
-    state=baseState({kind:"level",level:n,deck:"world",region:"all",layout,timed:clockVal(),death:false,mode:spec.mode,size:spec.size,deal:"fair",tiles});
+    state=baseState({kind:"level",level:n,rogue,deck:"world",region:"all",layout,timed:clockVal(),death:rogue,mode:spec.mode,size:spec.size,deal:"fair",tiles});
   }
   mount(); syncClock(); $("placard").hidden=true; closeOverlay(); renderLevels(); saveDaily();
+  if (rogue) { setFact(state.done ? "Checkpoint journey" : `Sudden Death · Level ${n}`, "One wrong pair sends you back to your checkpoint. No hints. Shuffle if stuck. Progress saves on this device."); return; }
   setFact(state.done ? "Level cleared" : `Level ${n}`, state.done ? "Open Choose a level to continue or replay a cleared level." : n<=5 ? "Tap a country, then its flag. Every tile on this first board is open. There's no penalty for learning: try a hint if you're unsure." : "Match two free tiles from the same country. Shaded tiles are blocked. Hints and shuffles won't stop you unlocking the next level.");
 }
 
@@ -1855,7 +1924,7 @@ function loadDaily() {
   const n = todayNumber(), spec = dailySpec(n);
   const saved = LS.get(KEY.daily + n);
   if (saved && saved.tiles && saved.tiles.length) {
-    state = { ...baseState(), ...saved, elapsedMs: saved.elapsedMs ?? saved.elapsed * 1000, legacyTime: saved.legacyTime || (saved.elapsedMs == null && saved.done), kind: "daily", n, running: false, sel: -1 };
+    state = { ...baseState(), ...saved, medalId:saved.medalId||newMedalId(), elapsedMs: saved.elapsedMs ?? saved.elapsed * 1000, legacyTime: saved.legacyTime || (saved.elapsedMs == null && saved.done), kind: "daily", n, running: false, sel: -1 };
   } else {
     rng = mulberry32(n * 1000003 + 7);
     let tiles, layout = "wide";
@@ -2001,7 +2070,7 @@ function startTimer() {
     state.elapsedMs = previous + Math.max(0, Math.floor(performance.now() - start));
     state.elapsed = Math.floor(state.elapsedMs / 1000);
     $("st-time").textContent = fmtPrecise(state.elapsedMs);
-    if (state.kind === "daily" && Math.floor(state.elapsedMs / 5000) > savedAt) {
+    if ((state.kind === "daily" || state.kind === "level") && Math.floor(state.elapsedMs / 5000) > savedAt) {
       savedAt = Math.floor(state.elapsedMs / 5000); saveDaily();
     }
   };
@@ -2039,7 +2108,7 @@ function onTile(i) {
     state.missFlag = true;
     flash(s.el, "wrong", 350); flash(t.el, "wrong", 350);
     state.sel = -1;
-    if (state.death && state.kind === "practice") return gameOver(s, t);
+    if (state.death && (state.kind === "practice" || state.rogue)) return gameOver(s, t);
     refresh();
     saveDaily();
   }
@@ -2051,11 +2120,13 @@ function gameOver(a, b) {
   stopTimer();
   state.done = true; state.over = true;
   state.lastMiss = [a.code, b.code, a.kind, b.kind];
+  if (state.rogue) { expedition.next=Math.min(60,expedition.bank+1); saveExpedition(); saveDaily(); renderLevels(); }
   [a, b].forEach(t => t.el.classList.add("fatal"));
   refresh();
   setFact("Game over", "One wrong pair ends a death match. Hit Try again for a fresh board.", true);
   const d = $("doom"); d.classList.remove("go"); void d.offsetWidth; d.classList.add("go");
-  setTimeout(() => { if (state.over && state.done) { showEndSheet(false, null); $("btn-again").focus(); } }, 700);
+  const failedState=state;
+  setTimeout(() => { if (state===failedState && state.over && state.done) { showEndSheet(false, null); $("btn-again").focus(); } }, 700);
 }
 
 function matchPair(a, b) {
@@ -2136,7 +2207,7 @@ function reshuffle() {
 // ---------- results, stats, sharing ----------
 function bestKey() {
   const scope = (state.deck && state.deck !== "world" ? state.deck + "-" : "") + (state.region && state.region !== "all" ? state.region + "-" : "");
-  if (state.kind === "level") return "mahgeong-level-best-" + state.level;
+  if (state.kind === "level") return "mahgeong-level-best-" + (state.rogue ? "expedition-" : "") + state.level;
   return KEY.best + scope + state.mode + "-" + state.size + (state.deal === "classic" ? "-classic" : "") + (state.death ? "-death" : "");
 }
 function getBest() { try { const v = localStorage.getItem(bestKey() + "-ms"); return v == null ? null : +v; } catch { return null; } }
@@ -2175,7 +2246,7 @@ function renderMarks(el, marks) {
 // names the clue type, deck size and scope instead (a speed run means
 // nothing without the board size).
 function shareHead() {
-  if (state.kind === "level") return `${NAME} Level ${state.level} · ${MODE_NAME[state.mode]}`;
+  if (state.kind === "level") return `${NAME} ${state.rogue ? "Sudden Death · " : ""}Level ${state.level} · ${MODE_NAME[state.mode]}`;
   if (state.kind === "daily") return `${NAME} No. ${state.n} · ${MODE_NAME[state.mode]}`;
   const d = deckOf(state);
   const scope = state.deck === "world" && state.region !== "all" ? ` from ${REGION_NAME[state.region]}` : "";
@@ -2235,11 +2306,15 @@ function showPlacard() {
 
 function finish() {
   stopTimer();
+  if (state.done) return;
   state.done = true;
+  state.earnedMedal=awardFlawless(state);
   const daily = state.kind === "daily";
   let best = null, isNew = false;
   if (state.kind === "level") {
-    if (state.level === levelCleared+1) { levelCleared=state.level; LS.set(LEVEL_PROGRESS_KEY,levelCleared); }
+    if (state.rogue) {
+      if (state.level===expedition.next) { expedition.bank=Math.max(expedition.bank,Math.floor(state.level/10)*10); expedition.next=Math.min(60,state.level+1); saveExpedition(); }
+    } else if (state.level === levelCleared+1) { levelCleared=state.level; LS.set(LEVEL_PROGRESS_KEY,levelCleared); }
     saveDaily(); renderLevels();
   } else if (daily) {
     recordResult();
@@ -2294,6 +2369,7 @@ function showEndSheet(isNew, best) {
   setupScoreResult();
   $("end-scores").hidden = !!state.death || state.kind === "level";   // death-match runs stay off the regular high-score tables
   $("sheet-end").classList.toggle("over", !!state.over);
+  $("sheet-end").classList.toggle("sudden-death", !!state.rogue);
   $("btn-again").textContent = state.over ? "Try again" : "Play again";
   $("end-next").hidden = !daily;
   $("btn-again").hidden = daily;
@@ -2304,6 +2380,13 @@ function showEndSheet(isNew, best) {
     $("end-side").textContent = `${levelCleared}/${LEVEL_COUNT}`; $("end-side-l").textContent = "levels cleared";
     $("btn-again").textContent = state.level<LEVEL_COUNT ? "Next level" : "Replay level 60";
   }
+  if (state.rogue) {
+    $("end-title").textContent=state.over ? "Knocked out" : state.level===60 ? "Sudden Death complete!" : state.level%10===0 ? `Checkpoint ${state.level} secured!` : `Level ${state.level} survived!`;
+    $("end-sum").textContent=state.over ? `One wrong pair. Back to level ${expedition.next}. Your ${expedition.bank} banked clears and all medals are safe.` : state.level===60 ? "All 60 clears banked permanently. Replay the final board or switch to Normal. Your medals and Normal progress stay saved." : `${expedition.bank} clears banked permanently. Next up: level ${expedition.next}. Normal progress is unchanged.`;
+    $("end-side").textContent=expedition.bank; $("end-side-l").textContent="clears banked";
+    $("btn-again").textContent=state.over ? `Return to level ${expedition.next}` : state.level===60 ? "Replay level 60" : "Next level";
+  }
+  $("end-medal").hidden=!state.earnedMedal || !!state.over;
   const list = state.log.slice().sort((a, b) => BY_CODE[a.code][1].localeCompare(BY_CODE[b.code][1]));
   $("recap").innerHTML = list.map(e => {
     const c = BY_CODE[e.code];
@@ -2314,6 +2397,7 @@ function showEndSheet(isNew, best) {
 }
 
 function showStats() {
+  renderProfile();
   const st = computeStats();
   $("s-played").textContent = st.played;
   $("s-streak").textContent = st.streak;
@@ -2336,12 +2420,14 @@ function showStats() {
 }
 
 // ---------- overlay ----------
+let overlayOpenedAt=0;
 function openSheet(id) {
+  overlayOpenedAt=performance.now();
   ["sheet-end", "sheet-stats", "sheet-help", "sheet-scores", "sheet-season"].forEach(s => { $(s).hidden = s !== id; });
   $("overlay").hidden = false;
 }
 function closeOverlay() { $("overlay").hidden = true; clearInterval(cdTimer); }
-$("overlay").addEventListener("click", e => { if (e.target === $("overlay")) closeOverlay(); });
+$("overlay").addEventListener("click", e => { if (e.target === $("overlay") && performance.now()-overlayOpenedAt>400) closeOverlay(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("overlay").hidden) closeOverlay(); });
 
 
@@ -2671,11 +2757,12 @@ function vsSend(obj) {
   else if (tab === "versus") vsStatus("Not connected - waiting for the host.");
 }
 
+function versusMedalReady() { return (Number(LS.get("mahgeong-versus-pairs-"+vs.token))||0)>0; }
 function applyVersusState(msg) {
   const tiles = msg.tiles.map(t => ({ ...t }));
   const wasStatus = vs.status;
   const wasRound = vs.round;
-  if (!vsState) vsState = baseState({ kind: "versus", deck: msg.deck || "world", region: "all", layout: "wide", mode: "mix", size: tiles.length / 2, deal: "fair", tiles });
+  if (!vsState) vsState = baseState({ medalId:"versus-"+vs.token, kind: "versus", deck: msg.deck || "world", region: "all", layout: "wide", mode: "mix", size: tiles.length / 2, deal: "fair", tiles });
   if (tiles.length) {
     vsState.tiles = tiles;
     vsState.sel = -1;
@@ -2729,7 +2816,10 @@ function applyVersusState(msg) {
         ? "Your first tile is locked - now tap its free match. A wrong pick costs you a point and gives your rival one."
         : `<b>${esc(vs.names[vs.pending.seat] || "Your rival")}</b> locked a tile and must find its match.`);
     }
-    if (msg.status === "done") { state.done = true; refresh(); setFact("Game over", versusEndText()); }
+    if (msg.status === "done") {
+      state.done = true; refresh(); setFact("Game over", versusEndText());
+      if (aliveTiles().length===0 && versusMedalReady() && awardFlawless(state)) toast("★ Flawless 2 Player medal earned. See your profile.");
+    }
   }
 }
 
@@ -2741,6 +2831,7 @@ function vsMessage(msg) {
   }
   if (msg.t === "state") return applyVersusState(msg);
   if (msg.t === "match") {
+    if (msg.by===vs.seat && vsState?.tiles[msg.a]?.alive && vsState?.tiles[msg.b]?.alive) LS.set("mahgeong-versus-pairs-"+vs.token,(Number(LS.get("mahgeong-versus-pairs-"+vs.token))||0)+1);
     if (vsState) {
       [msg.a, msg.b].forEach(i => {
         const t = vsState.tiles[i];
@@ -2749,6 +2840,7 @@ function vsMessage(msg) {
       vsState.sel = -1;
     }
     vs.scores = msg.scores;
+    if (msg.left===0 && versusMedalReady() && vsState && awardFlawless({...vsState,done:true,over:false})) toast("★ Flawless 2 Player medal earned. See your profile.");
     if (msg.turn) vs.turn = msg.turn;
     vs.pending = msg.pending || null;
     if (tab === "versus" && state === vsState) {
@@ -2923,6 +3015,7 @@ const toPractice = () => setTab("practice");
 
 $("tab-levels").addEventListener("click",()=>setTab("levels"));
 $("level-restart").addEventListener("click",()=>loadLevel(state.level,true));
+document.querySelectorAll('input[name="journey"]').forEach(el=>el.addEventListener("change",()=>{saveDaily();journey=el.value;LS.set("mahgeong-journey-v1",journey);loadLevel();}));
 $("level-grid").addEventListener("click",e=>{const b=e.target.closest("button[data-level]");if(b&&!b.disabled) {saveDaily();loadLevel(+b.dataset.level);}});
 $("tab-daily").addEventListener("click", () => setTab("daily"));
 $("tab-practice").addEventListener("click", toPractice);
@@ -3008,7 +3101,7 @@ function start(data) {
     $("tab-practice").setAttribute("aria-selected", "true");
     $("panel-daily").hidden = true;
     $("panel-practice").hidden = false;
-    state = { ...baseState(), ...p, elapsedMs: p.elapsedMs ?? p.elapsed * 1000, legacyTime: p.legacyTime || (p.elapsedMs == null && p.done), deck: p.deck || "world", region: p.region || "all", deal: p.deal || "fair", kind: "practice", running: false, sel: -1 };
+    state = { ...baseState(), ...p, medalId:p.medalId||newMedalId(), elapsedMs: p.elapsedMs ?? p.elapsed * 1000, legacyTime: p.legacyTime || (p.elapsedMs == null && p.done), deck: p.deck || "world", region: p.region || "all", deal: p.deal || "fair", kind: "practice", running: false, sel: -1 };
     mount();
     syncClock();
     setFact("Resumed", "Your board is back where you left it.");
