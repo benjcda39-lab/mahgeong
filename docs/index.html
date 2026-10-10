@@ -695,19 +695,28 @@
   .level-head { display:flex; flex-wrap:wrap; align-items:center; gap:12px; justify-content:space-between; }
   .level-head h2 { margin:0; font-size:1.2rem; }
   .level-note { color:var(--ink-2); margin:8px 0; line-height:1.5; }
+  .level-actions { display:flex; flex-wrap:wrap; gap:8px; }
+  .level-menu { width:min(560px,calc(100% - 32px)); max-height:85dvh; overflow:auto; box-sizing:border-box; border:1px solid var(--line); border-radius:16px; padding:22px; background:var(--panel); color:var(--ink); }
+  .level-menu::backdrop { background:rgba(0,0,0,.65); }
+  .level-menu h2 { margin:0; font-size:1.4rem; }
+  .level-menu-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .level-menu button:focus-visible { outline:3px solid var(--ink); outline-offset:3px; }
+  .level-menu .level-legend { color:var(--ink); line-height:1.5; }
+  .level-menu .level-next { width:100%; min-height:48px; margin:8px 0; }
   .level-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(48px,1fr)); gap:8px; margin:12px 0; }
   .level-grid button { min-height:44px; padding:8px; }
   .level-grid .cleared { background:#daf0d8; color:#244d24; }
   .level-grid [aria-current="step"] { outline:2px solid var(--ink); outline-offset:2px; }
-  .level-grid button:disabled { opacity:.4; }
-  #level-picker summary { cursor:pointer; padding:8px 0; font-weight:600; }
+  .level-grid button:disabled { opacity:1; background:#e8e6e1; color:#605d57; border-color:#c9c5bc; cursor:not-allowed; }
+  .level-grid button { display:flex; align-items:center; justify-content:center; gap:4px; }
+  .level-lock { font-size:.65rem; }
   #tab-daily:disabled { opacity:.55; }
   @media(max-width:600px) {
     #panel-levels .level-note { font-size:.85rem; line-height:1.4; margin:6px 0; }
     #panel-levels .level-save { display:none; }
     #panel-levels .level-head h2 { font-size:1.05rem; }
     #panel-levels #level-restart { padding:7px 10px; }
-    #panel-levels #level-picker summary { padding:6px 0; }
+    .level-menu { padding:16px; }
   }
 </style>
 
@@ -751,10 +760,9 @@
       <input type="radio" name="journey" id="journey-expedition" value="expedition"><label for="journey-expedition">Sudden Death</label>
     </div>
     <p class="level-note expedition-note" id="expedition-rules" hidden>One miss sends you back. Checkpoints every 10 clears. No hints; shuffles allowed. Normal progress stays separate.</p>
-    <div class="level-head"><h2 id="level-title">Level 1 of 60</h2><button id="level-restart" type="button">Restart level</button></div>
+    <div class="level-head"><h2 id="level-title">Level 1 of 60</h2><div class="level-actions"><button class="primary" id="level-picker" type="button" aria-haspopup="dialog" aria-controls="level-menu">Level menu</button><button id="level-restart" type="button">Restart level</button></div></div>
     <p class="level-note" id="level-description"></p>
     <p class="level-note" id="level-progress" aria-live="polite"></p>
-    <details id="level-picker"><summary>Choose a level</summary><div class="level-grid" id="level-grid"></div></details>
     <p class="level-note level-save">Progress saves on this device. Hints and shuffles are welcome. Practice and 2 Player are always open.</p>
   </section>
   <section class="strip" id="panel-daily">
@@ -916,6 +924,15 @@ derivative work: Serenthia. Public domain.</li><li><a href="https://commons.wiki
 </div>
 
 <div id="doom" aria-hidden="true"></div>
+<dialog class="level-menu" id="level-menu" aria-labelledby="level-menu-title" aria-describedby="level-menu-note">
+  <div class="level-menu-head"><h2 id="level-menu-title">Choose a level</h2><button id="level-menu-close" type="button" autofocus>Close</button></div>
+  <p class="level-note" id="level-menu-progress"></p>
+  <p class="level-legend" id="level-menu-note">Replay any table you've cleared. Locked tables open as you go.</p>
+  <button class="primary level-next" id="level-next" type="button"></button>
+  <div class="level-grid" id="level-grid" role="group" aria-label="Completed levels and locked levels"></div>
+  <p class="level-note">Replays won't erase your progress or medals. Saved on this device.</p>
+</dialog>
+
 <div class="overlay" id="overlay" hidden>
   <div class="sheet" id="sheet-end" role="dialog" aria-labelledby="end-title" hidden>
     <h2 id="end-title">Board cleared</h2>
@@ -1891,7 +1908,10 @@ function renderLevels() {
   $("tab-daily").disabled = !dailyUnlocked();
   $("tab-daily").textContent = dailyUnlocked() ? "Daily" : "Daily · locked";
   $("tab-daily").title = dailyUnlocked() ? "Today's challenge" : "Clear level 10 to unlock";
-  $("level-grid").innerHTML = Array.from({length:LEVEL_COUNT},(_,i)=>`<button type="button" data-level="${i+1}" aria-label="Level ${i+1}${i<levelCleared ? ', cleared' : i>levelCleared ? ', locked' : ', available'}"${i+1===n ? ' aria-current="step"' : ''}${i<levelCleared ? ' class="cleared"' : ''}${i>levelCleared ? ' disabled' : ''}>${i<levelCleared ? '✓ ' : ''}${i+1}</button>`).join("");
+  $("level-menu-progress").textContent = `${levelCleared} of ${LEVEL_COUNT} levels cleared`;
+  $("level-next").hidden=levelCleared===LEVEL_COUNT;
+  $("level-next").textContent=`Play level ${Math.min(LEVEL_COUNT,levelCleared+1)} · next table`;
+  $("level-grid").innerHTML = Array.from({length:LEVEL_COUNT},(_,i)=>`<button type="button" data-level="${i+1}" aria-label="Level ${i+1}, ${i<levelCleared ? 'cleared, replay' : 'locked'}"${i+1===n ? ' aria-current="step"' : ''}${i<levelCleared ? ' class="cleared"' : ' disabled'}>${i<levelCleared ? '<span aria-hidden="true">✓</span>' : '<span class="level-lock" aria-hidden="true">🔒</span>'}${i+1}</button>`).join("");
 }
 function loadLevel(n = null, restart = false) {
   const rogue=journey==="expedition", boardKey=rogue ? "mahgeong-expedition-board-v1" : "mahgeong-level-board-v1";
@@ -1911,7 +1931,7 @@ function loadLevel(n = null, restart = false) {
   }
   mount(); syncClock(); $("placard").hidden=true; closeOverlay(); renderLevels(); saveDaily();
   if (rogue) { setFact(state.done ? "Checkpoint journey" : `Sudden Death · Level ${n}`, "One wrong pair sends you back to your checkpoint. No hints. Shuffle if stuck. Progress saves on this device."); return; }
-  setFact(state.done ? "Level cleared" : `Level ${n}`, state.done ? "Open Choose a level to continue or replay a cleared level." : n<=5 ? "Tap a country, then its flag. Every tile on this first board is open. There's no penalty for learning: try a hint if you're unsure." : "Match two free tiles from the same country. Shaded tiles are blocked. Hints and shuffles won't stop you unlocking the next level.");
+  setFact(state.done ? "Level cleared" : `Level ${n}`, state.done ? "Open the Level menu to continue or replay a cleared table." : n<=5 ? "Tap a country, then its flag. Every tile on this first board is open. There's no penalty for learning: try a hint if you're unsure." : "Match two free tiles from the same country. Shaded tiles are blocked. Hints and shuffles won't stop you unlocking the next level.");
 }
 
 
@@ -3030,7 +3050,15 @@ const toPractice = () => setTab("practice");
 $("tab-levels").addEventListener("click",()=>setTab("levels"));
 $("level-restart").addEventListener("click",()=>loadLevel(state.level,true));
 document.querySelectorAll('input[name="journey"]').forEach(el=>el.addEventListener("change",()=>{saveDaily();journey=el.value;LS.set("mahgeong-journey-v1",journey);loadLevel();}));
-$("level-grid").addEventListener("click",e=>{const b=e.target.closest("button[data-level]");if(b&&!b.disabled) {saveDaily();loadLevel(+b.dataset.level);}});
+$("level-picker").addEventListener("click",()=>{renderLevels();$("level-menu").showModal();});
+$("level-menu-close").addEventListener("click",()=>$("level-menu").close());
+function chooseLevel(n) {
+  if (journey!=="normal" || !Number.isInteger(n) || n<1 || n>Math.min(LEVEL_COUNT,levelCleared+1)) return;
+  if (boardStarted() && !confirm("Start a fresh table? Your unfinished board will be replaced. Cleared levels and medals stay saved.")) return;
+  $("level-menu").close(); saveDaily(); loadLevel(n,true); $("level-picker").focus();
+}
+$("level-grid").addEventListener("click",e=>{const b=e.target.closest("button[data-level]");if(b&&!b.disabled && +b.dataset.level<=levelCleared) chooseLevel(+b.dataset.level);});
+$("level-next").addEventListener("click",()=>chooseLevel(Math.min(LEVEL_COUNT,levelCleared+1)));
 $("tab-daily").addEventListener("click", () => setTab("daily"));
 $("tab-practice").addEventListener("click", toPractice);
 $("tab-versus").addEventListener("click", () => setTab("versus"));
