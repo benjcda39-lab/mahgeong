@@ -46,8 +46,20 @@ let scoresDb = null;
 const currentSeason = seasonNumber();
 if (process.env.DATABASE_URL) {
   const { Pool } = await import("pg");
-  scoresDb = new Pool({ connectionString: process.env.DATABASE_URL, max: 4 });
-  await scoresDb.query(schema); // fail startup rather than pretend scores are available
+  scoresDb = new Pool({ connectionString: process.env.DATABASE_URL, max: 4, connectionTimeoutMillis: 10000 });
+  // A dropped idle connection (database suspended, restarted or maintained) must not
+  // crash the server: the pool re-emits idle-client errors as uncaught exceptions
+  // when no error listener is attached.
+  scoresDb.on("error", () => {});
+  try {
+    await scoresDb.query(schema);
+  } catch {
+    // A suspended or expired database must not take the game down either.
+    // Scores return 503 until the next start with a reachable database.
+    const dead = scoresDb;
+    scoresDb = null;
+    dead.end().catch(() => {});
+  }
 }
 
 
