@@ -191,6 +191,8 @@
     cursor: pointer;
   }
   button.primary { background: var(--red); border-color: var(--red); color: var(--on-accent); }
+  button.primary.big-next { display: block; box-sizing: border-box; width: 100%; font-size: 21px; padding: 16px 18px; border-radius: 10px; margin: 2px 0 12px; }
+  button.primary.big-next[hidden] { display: none; }
   button:hover { filter: brightness(1.05); }
   button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   button:disabled { opacity: .5; cursor: default; }
@@ -924,6 +926,7 @@ derivative work: Serenthia. Public domain.</li><li><a href="https://commons.wiki
     <h2 id="end-title">Board cleared</h2>
     <p class="sum" id="end-sum"></p>
     <p class="medal-earned" id="end-medal" role="status" hidden>★ Flawless medal earned · saved to your game profile.</p>
+    <button class="primary big-next" id="btn-next-level" type="button" hidden>Next level</button>
     <div class="grid">
       <div><b id="end-time">0:00</b><span id="end-time-l">time</span></div>
       <div><b id="end-miss">0</b><span>misses</span></div>
@@ -2406,6 +2409,8 @@ function showEndSheet(isNew, best) {
     $("end-side").textContent=expedition.bank; $("end-side-l").textContent="clears banked";
     $("btn-again").textContent=state.over ? `Return to level ${expedition.next}` : state.level===60 ? "Replay level 60" : "Next level";
   }
+  $("btn-next-level").hidden = state.kind !== "level";
+  if (state.kind === "level") $("btn-next-level").textContent = $("btn-again").textContent + " →";
   $("end-medal").hidden=!state.earnedMedal || !!state.over;
   const list = state.log.slice().sort((a, b) => BY_CODE[a.code][1].localeCompare(BY_CODE[b.code][1]));
   $("recap").innerHTML = list.map(e => {
@@ -3049,7 +3054,9 @@ $("tab-daily").addEventListener("click", () => setTab("daily"));
 $("tab-practice").addEventListener("click", toPractice);
 $("tab-versus").addEventListener("click", () => setTab("versus"));
 $("btn-new").addEventListener("click", fresh);
-$("btn-again").addEventListener("click", () => state.kind === "level" ? loadLevel(Math.min(LEVEL_COUNT,state.level+1),true) : fresh());
+const againAction = () => state.kind === "level" ? loadLevel(Math.min(LEVEL_COUNT,state.level+1),true) : fresh();
+$("btn-again").addEventListener("click", againAction);
+$("btn-next-level").addEventListener("click", againAction);
 $("btn-end-practice").addEventListener("click", toPractice);
 $("pl-practice").addEventListener("click", toPractice);
 $("pl-results").addEventListener("click", () => showEndSheet(false, null));
